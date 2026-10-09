@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.env
+kara.db
+.pytest_cache/
