@@ -24,6 +24,7 @@ def test_migration_upgrade_and_downgrade(tmp_path, monkeypatch):
     upgraded = inspect(engine).get_table_names()
     assert "users" in upgraded
     assert "queries" in upgraded
+    assert "conversations" in upgraded
 
     command.downgrade(cfg, "base")
     assert "users" not in inspect(engine).get_table_names()

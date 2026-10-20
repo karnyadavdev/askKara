@@ -8,13 +8,23 @@ class FakeProvider(LLMProvider):
         self._replies = list(replies)
         self.calls = []
 
-    async def chat(self, messages, tools=None):
+    async def chat(self, messages, tools=None, reasoning_effort=None):
         self.calls.append([dict(message) for message in messages])
         if not self._replies:
             return ChatReply(content="fallback answer")
         reply = self._replies.pop(0)
         if isinstance(reply, LLMError):
             raise reply
+        return reply
+
+
+class FakeStreamProvider(FakeProvider):
+    async def chat_stream(self, messages, tools=None, on_text=None):
+        reply = await self.chat(messages, tools=tools)
+        if reply.content and on_text:
+            words = reply.content.split(" ")
+            for i, word in enumerate(words):
+                await on_text(word if i == 0 else f" {word}")
         return reply
 
 
@@ -34,4 +44,4 @@ class FakeYada:
         }
 
 
-__all__ = ["ChatReply", "FakeProvider", "FakeYada", "LLMError", "ToolCall"]
+__all__ = ["ChatReply", "FakeProvider", "FakeStreamProvider", "FakeYada", "LLMError", "ToolCall"]

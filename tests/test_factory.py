@@ -11,7 +11,7 @@ class ScriptedProvider(LLMProvider):
         self._outcomes = list(outcomes)
         self.calls = 0
 
-    async def chat(self, messages, tools=None):
+    async def chat(self, messages, tools=None, reasoning_effort=None):
         self.calls += 1
         outcome = self._outcomes.pop(0)
         if isinstance(outcome, LLMError):

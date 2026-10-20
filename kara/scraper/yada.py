@@ -8,7 +8,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from kara.config import Settings
-from kara.scraper.youtube import maybe_youtube
+from kara.texttrim import trim_head_tail
 
 
 def html_to_text(html: str) -> str:
@@ -85,20 +85,9 @@ class YadaClient:
         if mode == "http":
             return await self._scrape_http(url)
 
-        return await self._scrape_import(url, objective)
+        return await self._scrape_import(url)
 
-    async def _scrape_import(self, url: str, objective: str) -> dict:
-        yt = await maybe_youtube(url, objective, self._settings)
-        if yt is not None:
-            return {
-                "ok": True,
-                "title": yt.get("title") or url,
-                "url": url,
-                "text": yt.get("text", "")[:14000],
-                "layer": yt.get("layer") or "youtube_comments_playwright",
-                "error": "",
-            }
-
+    async def _scrape_import(self, url: str) -> dict:
         engine = self._load_engine()
         if engine is None:
             return self._failure(url, f"YADA import unavailable: {self._import_failed}")
@@ -110,7 +99,7 @@ class YadaClient:
             )
             data = result.to_dict()
             title, text = extract_payload(data)
-            text = text[:14000]
+            text = trim_head_tail(text, 100_000)
             ok = bool(data.get("success")) and len(text) > 350 and not bad_page(title, text)
             return {
                 "ok": ok,
@@ -142,7 +131,7 @@ class YadaClient:
             return self._failure(url, str(exc))
 
         title, text = extract_payload(data)
-        text = text[:14000]
+        text = trim_head_tail(text, 100_000)
         ok = bool(data.get("success")) and len(text) > 350 and not bad_page(title, text)
         return {
             "ok": ok,

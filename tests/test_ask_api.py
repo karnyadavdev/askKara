@@ -3,7 +3,7 @@ import json
 from kara.deps import get_provider
 from kara.llm.base import LLMError, ToolCall
 
-from fakes import ChatReply, FakeProvider
+from fakes import ChatReply, FakeProvider, FakeStreamProvider
 
 
 def parse_ndjson(text):
@@ -115,6 +115,55 @@ async def test_provider_auth_failure_emits_error_event(client):
     assert "authentication" in last["message"]
 
 
+async def test_token_events_are_streamed(client):
+    client.app.dependency_overrides[get_provider] = lambda: FakeStreamProvider([ChatReply(content="Hello world.")])
+
+    resp = await ask(client, "What is the capital of France?")
+
+    events = parse_ndjson(resp.text)
+    tokens = [event for event in events if event["type"] == "token"]
+    assert [token["text"] for token in tokens] == ["Hello", " world."]
+    assert events[-1]["type"] == "done"
+    assert events[-1]["answer"] == "Hello world."
+
+
+async def test_stream_reset_when_model_calls_tools_after_tokens(client):
+    client.app.dependency_overrides[get_provider] = lambda: FakeStreamProvider(
+        [
+            ChatReply(
+                content="let me check",
+                tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://example.com"})],
+            ),
+            ChatReply(content="Done [1]."),
+        ]
+    )
+
+    resp = await ask(client, "Summarize https://example.com")
+
+    events = parse_ndjson(resp.text)
+    types = [event["type"] for event in events]
+    assert types.count("stream_reset") == 1
+    assert types.index("stream_reset") == 5
+    assert events[-1]["type"] == "done"
+    assert events[-1]["answer"] == "Done [1]."
+
+
+async def test_model_answer_passes_through_untouched(client):
+    client.app.dependency_overrides[get_provider] = lambda: FakeProvider(
+        [
+            ChatReply(
+                tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://example.com"})]
+            ),
+            ChatReply(content="Paris is the capital of France [1]. The moon is made of cheese."),
+        ]
+    )
+
+    resp = await ask(client, "Summarize https://example.com")
+
+    done = parse_ndjson(resp.text)[-1]
+    assert done["answer"] == "Paris is the capital of France [1]. The moon is made of cheese."
+
+
 async def test_guest_history_is_saved(client):
     from fakes import ChatReply
 
@@ -140,12 +189,12 @@ async def test_health_endpoint(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["llm_chain"] == ["groq", "openai"]
+    assert body["llm_chain"] == ["nim"]
     assert body["auth_required"] is False
 
 
-async def test_index_is_served(client):
-    resp = await client.get("/")
+async def test_legacy_frontend_removed(client):
+    for path in ("/", "/styles.css", "/app.js"):
+        resp = await client.get(path)
 
-    assert resp.status_code == 200
-    assert "askKara" in resp.text.lower() or "<html" in resp.text.lower()
+        assert resp.status_code == 404

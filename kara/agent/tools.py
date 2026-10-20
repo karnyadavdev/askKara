@@ -1,15 +1,20 @@
+import asyncio
 import json
+import re
 from urllib.parse import urlparse
 
 from kara.scraper.search import search_web
 from kara.scraper.yada import YadaClient
+from kara.texttrim import trim_head_tail
+
+TOOL_TEXT_LIMIT = 15_000
 
 TOOL_SCHEMAS: list[dict] = [
     {
-        "name": "google_search",
+        "name": "web_search",
         "description": (
-            "Find source URLs for an open web question. Use this when the user did not provide "
-            "a direct URL or when current source discovery is needed."
+            "Find source URLs on the open web through the configured search API. "
+            "Use this when the user did not provide a direct URL or when current source discovery is needed."
         ),
         "parameters": {
             "type": "object",
@@ -24,7 +29,7 @@ TOOL_SCHEMAS: list[dict] = [
         "name": "yada_scrape",
         "description": (
             "Scrape a web page with YADA. Use this directly for URLs supplied by the user. "
-            "Use this for URLs supplied by the user, URLs discovered through google_search, "
+            "Use this for URLs supplied by the user, URLs discovered through web_search, "
             "or authoritative URLs you can infer from the question. Include the user's goal "
             "in objective so YADA can use deeper extraction when needed."
         ),
@@ -45,7 +50,8 @@ TOOL_SCHEMAS: list[dict] = [
         "description": (
             "Scrape multiple web pages with YADA in parallel. Prefer this when the user asks "
             "for multiple sites, comparisons, lists of sources, product prices across retailers, "
-            "or when google_search returns several useful URLs. It accepts 2 to 10 URLs."
+            "or when web_search returns several useful URLs. It accepts 2 to 10 URLs "
+            "(up to 25 in deep research mode)."
         ),
         "parameters": {
             "type": "object",
@@ -67,14 +73,32 @@ TOOL_SCHEMAS: list[dict] = [
 
 
 class ToolRunner:
-    def __init__(self, yada: YadaClient, max_sources: int = 8, search_enabled: bool = True):
+    def __init__(
+        self,
+        yada: YadaClient,
+        max_sources: int = 8,
+        search_enabled: bool = True,
+        search_provider: str = "ddgs",
+        search_api_key: str = "",
+        batch_cap: int = 10,
+        trim_text: bool = True,
+    ):
         self._yada = yada
         self._max_sources = max_sources
         self._search_enabled = search_enabled
+        self._search_provider = search_provider
+        self._search_api_key = search_api_key
+        self._batch_cap = max(2, min(batch_cap, 40))
+        self._trim_text = trim_text
+
+    def _limit(self, text: str) -> str:
+        if not self._trim_text:
+            return text
+        return trim_head_tail(text, TOOL_TEXT_LIMIT)
 
     async def execute(self, name: str, args: dict) -> tuple[str, dict]:
-        if name == "google_search":
-            return name, await self._google_search(args)
+        if name == "web_search":
+            return name, await self._web_search(args)
 
         if name == "yada_scrape":
             return name, await self._yada_scrape(args)
@@ -84,17 +108,24 @@ class ToolRunner:
 
         return name, {"ok": False, "error": f"Unknown tool: {name}"}
 
-    async def _google_search(self, args: dict) -> dict:
+    async def _web_search(self, args: dict) -> dict:
         if not self._search_enabled:
             return {"ok": False, "error": "Search disabled", "sources": []}
         query = str(args.get("query") or "").strip()
         max_results = int(args.get("max_results") or self._max_sources or 4)
         max_results = max(1, min(max_results, 10))
-        sources = await search_web(query, max_results=max_results)
+        outcome = await search_web(
+            query,
+            max_results=max_results,
+            provider=self._search_provider,
+            api_key=self._search_api_key,
+        )
+        if not outcome["ok"]:
+            return {"ok": False, "error": outcome["error"], "sources": []}
         return {
             "summary": "Source discovery only. Call yada_scrape on relevant URLs before answering.",
             "ok": True,
-            "sources": sources,
+            "sources": outcome["sources"],
         }
 
     async def _yada_scrape(self, args: dict) -> dict:
@@ -107,7 +138,7 @@ class ToolRunner:
             "ok": result["ok"],
             "title": result["title"],
             "url": result["url"],
-            "text": result["text"][:7000],
+            "text": self._limit(result["text"]),
             "layer": result["layer"],
             "error": result["error"],
         }
@@ -126,15 +157,13 @@ class ToolRunner:
                 continue
             seen.add(url)
             urls.append(url)
-            if len(urls) >= 10:
+            if len(urls) >= self._batch_cap:
                 break
 
         if not urls:
             return {"ok": False, "error": "No valid URLs", "results": []}
 
-        import asyncio
-
-        limit = min(self._max_sources, 10)
+        limit = min(self._max_sources, self._batch_cap)
         sem = asyncio.Semaphore(3)
 
         async def guarded(single_url: str):
@@ -148,7 +177,7 @@ class ToolRunner:
                 "ok": True,
                 "title": item["title"],
                 "url": item["url"],
-                "text": item["text"][:5000],
+                "text": self._limit(item["text"]),
                 "layer": item["layer"],
                 "error": item["error"],
             }
@@ -168,8 +197,6 @@ def dumps(payload: dict) -> str:
 
 
 def urls_in_text(text: str) -> list[str]:
-    import re
-
     urls: list[str] = []
     seen: set[str] = set()
     for match in re.finditer(r"https?://[^\s<>()\"']+", text):

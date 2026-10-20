@@ -27,8 +27,16 @@ class LLMProvider(ABC):
     name: str = "base"
 
     @abstractmethod
-    async def chat(self, messages: list[dict], tools: list[dict] | None = None) -> ChatReply:
+    async def chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        reasoning_effort: str | None = None,
+    ) -> ChatReply:
         raise NotImplementedError
+
+    async def chat_stream(self, messages: list[dict], tools: list[dict] | None = None, on_text=None) -> ChatReply:
+        return await self.chat(messages, tools=tools)
 
 
 RETRIABLE_STATUS = {429, 500, 502, 503, 504}

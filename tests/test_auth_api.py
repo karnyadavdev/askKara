@@ -24,6 +24,28 @@ async def test_register_rejects_duplicate_email(client):
     assert second.status_code == 409
 
 
+async def test_register_rejects_password_over_72_bytes(client):
+    ascii_resp = await client.post(
+        "/api/auth/register",
+        json={"email": VALID["email"], "password": "x" * 100},
+    )
+    assert ascii_resp.status_code == 422
+
+    multi_resp = await client.post(
+        "/api/auth/register",
+        json={"email": VALID["email"], "password": "é" * 40},
+    )
+    assert multi_resp.status_code == 422
+
+
+async def test_register_accepts_72_byte_password(client):
+    resp = await client.post(
+        "/api/auth/register",
+        json={"email": VALID["email"], "password": "y" * 72},
+    )
+    assert resp.status_code == 201
+
+
 async def test_login_success_and_failure(client):
     await client.post("/api/auth/register", json=VALID)
 

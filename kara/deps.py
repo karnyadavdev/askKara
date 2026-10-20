@@ -37,11 +37,33 @@ def reset_runtime_state() -> None:
     _yada = None
 
 
+def search_key_for(settings: Settings) -> str:
+    if settings.search_provider == "tavily":
+        return settings.tavily_api_key
+    if settings.search_provider == "serper":
+        return settings.serper_api_key
+    if settings.search_provider == "brave":
+        return settings.brave_api_key
+    return ""
+
+
+def build_runner(settings: Settings, yada: YadaClient, deep: bool = False, summarize: bool = False) -> ToolRunner:
+    return ToolRunner(
+        yada,
+        max_sources=settings.deep_max_sources if deep else settings.max_sources_cap,
+        search_enabled=settings.search_enabled,
+        search_provider=settings.search_provider,
+        search_api_key=search_key_for(settings),
+        batch_cap=settings.deep_batch_cap if deep else 10,
+        trim_text=not summarize,
+    )
+
+
 def get_runner(
     yada: YadaClient = Depends(get_yada),
     settings: Settings = Depends(get_settings),
 ) -> ToolRunner:
-    return ToolRunner(yada, max_sources=settings.max_sources_cap, search_enabled=settings.search_enabled)
+    return build_runner(settings, yada)
 
 
 async def get_current_user(
@@ -70,5 +92,13 @@ async def require_user(
     return user
 
 
-def client_ip(request: Request) -> str:
+def client_ip(request: Request, trust_proxy: bool | None = None) -> str:
+    if trust_proxy is None:
+        trust_proxy = get_settings().trust_proxy
+    if trust_proxy:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        if forwarded:
+            first = forwarded.split(",")[0].strip()
+            if first:
+                return first
     return request.client.host if request.client else "unknown"

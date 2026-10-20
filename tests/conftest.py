@@ -10,6 +10,7 @@ from kara.config import get_settings  # noqa: E402
 from kara.db import create_all_tables, reset_db_state  # noqa: E402
 from kara.deps import get_provider, get_yada, reset_runtime_state  # noqa: E402
 from kara.routers.ask import reset_rate_limiter  # noqa: E402
+from kara.routers.auth import reset_auth_limiter  # noqa: E402
 
 from fakes import FakeProvider, FakeYada  # noqa: E402
 from kara.llm.base import ChatReply  # noqa: E402
@@ -19,10 +20,14 @@ def _reset(tmp_path, monkeypatch, auth_required="0"):
     monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
     monkeypatch.setenv("YADA_MODE", "off")
     monkeypatch.setenv("KARA_AUTH_REQUIRED", auth_required)
+    monkeypatch.setenv("KARA_LLM_CHAIN", "nim")
+    monkeypatch.setenv("NIM_API_KEY", "test-key")
+    monkeypatch.setenv("KARA_SUMMARIZE", "0")
     get_settings.cache_clear()
     reset_db_state()
     reset_runtime_state()
     reset_rate_limiter()
+    reset_auth_limiter()
 
 
 def _teardown():
@@ -30,6 +35,7 @@ def _teardown():
     reset_db_state()
     reset_runtime_state()
     reset_rate_limiter()
+    reset_auth_limiter()
 
 
 @pytest.fixture

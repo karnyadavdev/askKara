@@ -1,8 +1,16 @@
 import re
 
+from kara.agent.summarize import summarize_texts
 from kara.agent.tools import TOOL_SCHEMAS, ToolRunner, dumps, urls_in_text
 from kara.llm.base import LLMError, LLMProvider
 from kara.prompts import build_system_prompt
+
+
+_CITATION_RE = re.compile(r"^\s*(?:\d+[.)]|[-*•]|\[\d+\])\s*\S|^https?://\S", re.IGNORECASE)
+
+
+def _is_citation_line(line: str) -> bool:
+    return bool(_CITATION_RE.match(line))
 
 
 def clean_answer_text(text: str) -> str:
@@ -15,9 +23,11 @@ def clean_answer_text(text: str) -> str:
     cut_at = None
     for i, line in enumerate(lines):
         clean = line.strip().strip("*_:- ").lower()
-        if clean in {"source", "sources", "references", "reference"}:
+        if clean not in {"source", "sources", "references", "reference"}:
+            continue
+        rest = [ln for ln in lines[i + 1:] if ln.strip()]
+        if rest and all(_is_citation_line(ln) for ln in rest):
             cut_at = i
-            break
     if cut_at is not None:
         text = "\n".join(lines[:cut_at]).strip()
 
@@ -40,22 +50,38 @@ async def run_agent(
     max_sources: int = 8,
     max_steps: int = 8,
     on_event=None,
+    summarize: bool = False,
+    history: list[dict] | None = None,
 ) -> dict:
     system = build_system_prompt(max_sources=max_sources)
-    messages: list[dict] = [{"role": "system", "content": system}, {"role": "user", "content": question}]
+    messages: list[dict] = [{"role": "system", "content": system}]
+    if history:
+        messages.extend(history)
+    messages.append({"role": "user", "content": question})
     used_sources: list[dict] = []
+    scraped_urls: set[str] = set()
     tool_trace: list[dict] = []
+    streamed = False
 
     async def emit(payload: dict):
         if on_event:
             await on_event(payload)
 
+    async def on_token(text: str) -> None:
+        nonlocal streamed
+        streamed = True
+        await emit({"type": "token", "text": text})
+
     for _ in range(max_steps):
         await emit({"type": "stage", "stage": "initializing", "message": "Initializing research..."})
         try:
-            reply = await provider.chat(messages, tools=TOOL_SCHEMAS)
+            reply = await provider.chat_stream(messages, tools=TOOL_SCHEMAS, on_text=on_token)
         except LLMError:
             raise
+
+        if streamed and reply.tool_calls:
+            await emit({"type": "stream_reset"})
+            streamed = False
 
         if not reply.tool_calls:
             answer = clean_answer_text(reply.content or "")
@@ -74,7 +100,7 @@ async def run_agent(
                     {
                         "role": "user",
                         "content": (
-                            "Decide whether this question needs web/page data. If it does, call google_search "
+                            "Decide whether this question needs web/page data. If it does, call web_search "
                             "or yada_scrape_many. If it is general knowledge, answer directly."
                         ),
                     }
@@ -98,17 +124,45 @@ async def run_agent(
         )
 
         for call in reply.tool_calls:
-            if call.name == "google_search":
+            if call.name == "web_search":
                 await emit({"type": "stage", "stage": "searching", "message": "Searching for sources..."})
             elif call.name == "yada_scrape":
                 await emit({"type": "stage", "stage": "fetching", "message": "Fetching source page..."})
             elif call.name == "yada_scrape_many":
                 await emit({"type": "stage", "stage": "fetching", "message": "Fetching source pages..."})
 
+            if call.name == "yada_scrape":
+                url = str(call.arguments.get("url") or "").strip()
+                if url in scraped_urls:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": call.name,
+                            "content": dumps({"ok": True, "already_scraped": True, "url": url, "text": "Already scraped. Use the data from the earlier tool result. Do not scrape this URL again."}),
+                        }
+                    )
+                    tool_trace.append({"tool": call.name, "args": call.arguments, "ok": True, "skipped": True})
+                    continue
+
             name, response = await runner.execute(call.name, call.arguments)
             tool_trace.append({"tool": name, "args": call.arguments, "ok": response.get("ok", True)})
 
+            if summarize and response.get("ok") and name in {"yada_scrape", "yada_scrape_many"}:
+                await emit({"type": "stage", "stage": "digesting", "message": "Digesting sources..."})
+                if name == "yada_scrape":
+                    response["text"] = (await summarize_texts(provider, question, [response.get("text") or ""]))[0]
+                else:
+                    results = response.get("results") or []
+                    summaries = await summarize_texts(
+                        provider, question, [item.get("text") or "" for item in results]
+                    )
+                    for item, summary in zip(results, summaries):
+                        item["text"] = summary
+
             if name == "yada_scrape" and response.get("ok"):
+                url = response.get("url") or ""
+                scraped_urls.add(url)
                 used_sources.append(
                     {
                         "title": response.get("title") or response.get("url"),
@@ -121,6 +175,10 @@ async def run_agent(
                 for source in response.get("results", []):
                     if not source.get("ok"):
                         continue
+                    url = source.get("url") or ""
+                    if url in scraped_urls:
+                        continue
+                    scraped_urls.add(url)
                     used_sources.append(
                         {
                             "title": source.get("title") or source.get("url"),

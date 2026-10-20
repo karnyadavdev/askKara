@@ -4,14 +4,14 @@ from kara.config import Settings
 def test_defaults():
     settings = Settings()
     assert settings.database_url.startswith("sqlite")
-    assert settings.llm_chain == ("groq", "openai")
+    assert settings.llm_chain == ("groq",)
     assert settings.max_sources_cap == 10
     assert settings.auth_required is False
 
 
 def test_llm_ready_requires_a_chain_key():
     assert Settings(groq_api_key="k").llm_ready is True
-    assert Settings(openai_api_key="k").llm_ready is True
+    assert Settings(llm_chain=("groq", "openai"), openai_api_key="k").llm_ready is True
     assert Settings().llm_ready is False
 
 

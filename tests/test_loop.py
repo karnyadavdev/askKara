@@ -26,8 +26,9 @@ class AlwaysToolProvider(LLMProvider):
     name = "loop"
 
     async def chat(self, messages, tools=None):
+        call_count = sum(1 for m in messages if m.get("role") == "assistant")
         return ChatReply(
-            tool_calls=[ToolCall(id=f"call_{len(messages)}", name="yada_scrape", arguments={"url": "https://x.dev"})]
+            tool_calls=[ToolCall(id=f"call_{call_count}", name="yada_scrape", arguments={"url": f"https://x.dev/{call_count}"})]
         )
 
 
