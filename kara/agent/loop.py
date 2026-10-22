@@ -61,27 +61,34 @@ async def run_agent(
     used_sources: list[dict] = []
     scraped_urls: set[str] = set()
     tool_trace: list[dict] = []
-    streamed = False
+    round_text: list[str] = []
 
     async def emit(payload: dict):
         if on_event:
             await on_event(payload)
 
     async def on_token(text: str) -> None:
-        nonlocal streamed
-        streamed = True
-        await emit({"type": "token", "text": text})
+        round_text.append(text)
 
-    for _ in range(max_steps):
-        await emit({"type": "stage", "stage": "initializing", "message": "Initializing research..."})
+    async def flush_step() -> None:
+        text = "".join(round_text).strip()
+        round_text.clear()
+        if text:
+            await emit({"type": "step", "text": text})
+
+    await emit({"type": "stage", "stage": "researching", "message": "Researching..."})
+
+    for i in range(max_steps):
+        round_text.clear()
+        if i > 0:
+            await emit({"type": "stage", "stage": "composing", "message": "Composing answer..."})
         try:
             reply = await provider.chat_stream(messages, tools=TOOL_SCHEMAS, on_text=on_token)
         except LLMError:
             raise
 
-        if streamed and reply.tool_calls:
-            await emit({"type": "stream_reset"})
-            streamed = False
+        if reply.tool_calls:
+            await flush_step()
 
         if not reply.tool_calls:
             answer = clean_answer_text(reply.content or "")
@@ -105,6 +112,7 @@ async def run_agent(
                         ),
                     }
                 )
+                await flush_step()
                 continue
             return {
                 "answer": answer or "No final answer was returned.",
@@ -196,8 +204,6 @@ async def run_agent(
                     "content": dumps(response),
                 }
             )
-
-        await emit({"type": "stage", "stage": "composing", "message": "Composing answer..."})
 
     return {
         "answer": "I hit the research step limit before producing a final answer.",

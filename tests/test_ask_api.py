@@ -115,19 +115,20 @@ async def test_provider_auth_failure_emits_error_event(client):
     assert "authentication" in last["message"]
 
 
-async def test_token_events_are_streamed(client):
+async def test_no_partial_tokens_streamed_into_answer(client):
     client.app.dependency_overrides[get_provider] = lambda: FakeStreamProvider([ChatReply(content="Hello world.")])
 
     resp = await ask(client, "What is the capital of France?")
 
     events = parse_ndjson(resp.text)
-    tokens = [event for event in events if event["type"] == "token"]
-    assert [token["text"] for token in tokens] == ["Hello", " world."]
+    types = [event["type"] for event in events]
+    assert "token" not in types
+    assert "stream_reset" not in types
     assert events[-1]["type"] == "done"
     assert events[-1]["answer"] == "Hello world."
 
 
-async def test_stream_reset_when_model_calls_tools_after_tokens(client):
+async def test_model_narration_becomes_a_step_instead_of_a_reset(client):
     client.app.dependency_overrides[get_provider] = lambda: FakeStreamProvider(
         [
             ChatReply(
@@ -142,8 +143,19 @@ async def test_stream_reset_when_model_calls_tools_after_tokens(client):
 
     events = parse_ndjson(resp.text)
     types = [event["type"] for event in events]
-    assert types.count("stream_reset") == 1
-    assert types.index("stream_reset") == 5
+    assert "stream_reset" not in types
+    assert "token" not in types
+
+    steps = [event for event in events if event["type"] == "step"]
+    assert len(steps) == 1
+    assert steps[0]["text"] == "let me check"
+
+    stages = [event.get("stage") for event in events if event["type"] == "stage"]
+    assert stages[0] == "researching"
+    assert "fetching" in stages
+    assert "composing" in stages
+    assert "initializing" not in stages
+
     assert events[-1]["type"] == "done"
     assert events[-1]["answer"] == "Done [1]."
 

@@ -1,5 +1,5 @@
 export interface StreamEvent {
-  type: 'stage' | 'token' | 'stream_reset' | 'sources' | 'done' | 'error' | 'conversation'
+  type: 'stage' | 'token' | 'step' | 'sources' | 'done' | 'error' | 'conversation'
   message?: string
   text?: string
   answer?: string

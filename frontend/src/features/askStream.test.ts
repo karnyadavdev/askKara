@@ -75,6 +75,23 @@ describe('ask stream', () => {
     expect(store.getState().stream.conversationId).toBe(9)
   })
 
+  it('collects step narration into the history instead of wiping the answer', async () => {
+    mockStream([
+      chunk('{"type":"conversation","id":3}\n{"type":"stage","message":"Researching..."}\n'),
+      chunk('{"type":"step","text":"need the page first"}\n{"type":"stage","message":"Fetching source page..."}\n'),
+      chunk('{"type":"done","answer":"final","sources":[]}\n'),
+      { done: true },
+    ])
+
+    await store.dispatch(ask('q'))
+
+    const state = store.getState().stream
+    expect(state.status).toBe('done')
+    expect(state.answer).toBe('final')
+    expect(state.steps).toEqual(['Researching...', 'need the page first'])
+    expect(state.streamed).toBe(false)
+  })
+
   it('abortAsk cancels silently without dispatching fail', async () => {
     mockStream([chunk('{"type":"conversation","id":1}\n')])
 

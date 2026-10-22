@@ -12,6 +12,8 @@ export default function TypeAnswer({ text }: Props) {
     const host = hostRef.current
     if (host) host.innerHTML = ''
 
+    const perChar = Math.max(2, Math.min(12, Math.round(4000 / Math.max(1, text.length))))
+
     const source = document.createElement('div')
     source.innerHTML = renderAnswerMarkdown(text)
     const paragraphs = Array.from(source.querySelectorAll('p'))
@@ -46,7 +48,7 @@ export default function TypeAnswer({ text }: Props) {
         }
         p.innerHTML = full.substring(0, charIndex)
         p.appendChild(cursor)
-        timer = window.setTimeout(nextChar, 12)
+        timer = window.setTimeout(nextChar, perChar)
       }
 
       nextChar()

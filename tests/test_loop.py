@@ -1,7 +1,7 @@
 from kara.agent.loop import clean_answer_text, needs_page_or_current_data, run_agent
 from kara.llm.base import ChatReply, LLMProvider, ToolCall
 
-from fakes import FakeProvider
+from fakes import FakeProvider, FakeStreamProvider
 
 
 class FakeRunner:
@@ -76,6 +76,47 @@ async def test_tool_call_path_collects_sources_and_stages():
     assert result["sources"][0]["url"] == "https://example.com"
     stages = [event.get("stage") for event in events]
     assert "fetching" in stages and "composing" in stages
+
+
+async def test_stage_labels_never_rewind_and_narration_becomes_a_step():
+    provider = FakeStreamProvider(
+        [
+            ChatReply(
+                content="need the page first",
+                tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://example.com"})],
+            ),
+            ChatReply(content="Composed answer [1]."),
+        ]
+    )
+    events: list[dict] = []
+
+    async def on_event(payload):
+        events.append(payload)
+
+    await run_agent(
+        "Summarize https://example.com",
+        provider=provider,
+        runner=FakeRunner(),
+        max_sources=5,
+        max_steps=3,
+        on_event=on_event,
+    )
+
+    types = [event["type"] for event in events]
+    assert "stream_reset" not in types
+    assert "token" not in types
+
+    researching = [event for event in events if event["type"] == "stage" and event["stage"] == "researching"]
+    assert len(researching) == 1
+
+    steps = [event["text"] for event in events if event["type"] == "step"]
+    assert steps == ["need the page first"]
+
+    stages = [event["stage"] for event in events if event["type"] == "stage"]
+    assert stages[0] == "researching"
+    assert "fetching" in stages
+    assert "composing" in stages
+    assert "initializing" not in stages
 
 
 async def test_step_limit_returns_honest_answer():

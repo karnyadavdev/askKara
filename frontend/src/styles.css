@@ -685,6 +685,48 @@ body {
     }
 }
 
+.answer-block .step-toggle {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.answer-block .step-toggle-mark {
+    flex: 0 0 auto;
+    color: var(--text-dim);
+}
+
+.answer-block .step-toggle-count {
+    font-size: 0.85em;
+    color: var(--text-dim);
+    opacity: 0.75;
+}
+
+.answer-block .step-toggle:hover .step-toggle-count,
+.answer-block .step-toggle:focus-visible .step-toggle-count {
+    opacity: 1;
+}
+
+.answer-block .step-history {
+    margin-top: 0.6em;
+    padding-left: 1.2em;
+    border-left: 1px solid var(--text-dim);
+}
+
+.answer-block .step-history-item {
+    margin-bottom: 0.6em;
+    font-size: 0.95em;
+    color: var(--text-dim);
+}
+
 .answer-block .answer-bullet {
     margin-bottom: 0.8em;
 }

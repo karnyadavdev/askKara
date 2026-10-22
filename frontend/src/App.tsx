@@ -262,6 +262,7 @@ export default function App() {
                     item={item}
                     stage={isLive ? stream.stage : undefined}
                     liveText={isLive ? stream.answer : undefined}
+                    steps={isLive ? stream.steps : undefined}
                   />
                 )
               })}

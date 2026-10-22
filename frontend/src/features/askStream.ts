@@ -1,4 +1,4 @@
-import { answer, fail, setConversation, start, stage, streamReset, token } from './streamSlice'
+import { answer, fail, setConversation, start, stage, step, token } from './streamSlice'
 import { parseEvents } from './parseEvents'
 import type { StreamEvent } from './parseEvents'
 import type { Source } from './historyApi'
@@ -50,8 +50,8 @@ export function ask(question: string, conversationId: number | null = null, maxS
           dispatch(stage(event.message ?? 'Working...'))
         } else if (event.type === 'token') {
           dispatch(token(event.text ?? ''))
-        } else if (event.type === 'stream_reset') {
-          dispatch(streamReset())
+        } else if (event.type === 'step') {
+          dispatch(step(event.text ?? ''))
         } else if (event.type === 'done') {
           sawTerminal = true
           dispatch(answer({ answer: event.answer ?? '', sources: (event.sources ?? []) as Source[] }))

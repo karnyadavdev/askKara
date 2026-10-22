@@ -19,9 +19,10 @@ type Props = {
   item: FeedItem
   stage?: string
   liveText?: string
+  steps?: string[]
 }
 
-export default function FeedBlock({ item, stage, liveText }: Props) {
+export default function FeedBlock({ item, stage, liveText, steps }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
 
@@ -50,7 +51,7 @@ export default function FeedBlock({ item, stage, liveText }: Props) {
           <span className="live-cursor" />
         </>
       ) : (
-        <StageLine message={stage || item.stage || 'Initializing research...'} />
+        <StageLine message={stage || item.stage || 'Researching...'} steps={steps} />
       )}
     </div>
   )

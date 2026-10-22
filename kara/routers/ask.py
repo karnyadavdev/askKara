@@ -172,7 +172,7 @@ async def ask_stream(
                     event = await asyncio.wait_for(queue.get(), timeout=0.25)
                 except asyncio.TimeoutError:
                     continue
-                if event.get("type") in {"stage", "token", "stream_reset"}:
+                if event.get("type") in {"stage", "token", "step"}:
                     yield _line(event)
         finally:
             if not task.done():

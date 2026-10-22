@@ -6,6 +6,8 @@ interface StreamState {
   question: string
   stage: string
   answer: string
+  steps: string[]
+  stageArchived: boolean
   sources: Source[]
   status: 'idle' | 'running' | 'done' | 'error'
   error: string
@@ -18,6 +20,8 @@ const initialState: StreamState = {
   question: '',
   stage: '',
   answer: '',
+  steps: [],
+  stageArchived: false,
   sources: [],
   status: 'idle',
   error: '',
@@ -34,6 +38,8 @@ const streamSlice = createSlice({
       state.question = action.payload
       state.stage = ''
       state.answer = ''
+      state.steps = []
+      state.stageArchived = false
       state.sources = []
       state.status = 'running'
       state.error = ''
@@ -44,15 +50,23 @@ const streamSlice = createSlice({
       state.conversationId = action.payload
     },
     stage(state, action: PayloadAction<string>) {
-      state.stage = action.payload
+      const next = action.payload
+      if (state.stage && state.stage !== next && !state.stageArchived) state.steps.push(state.stage)
+      state.stage = next
+      state.stageArchived = false
     },
     token(state, action: PayloadAction<string>) {
       state.answer += action.payload
       state.streamed = true
     },
-    streamReset(state) {
-      state.answer = ''
-      state.streamed = false
+    step(state, action: PayloadAction<string>) {
+      const text = action.payload.trim()
+      if (!text) return
+      if (state.stage && !state.stageArchived) {
+        state.steps.push(state.stage)
+        state.stageArchived = true
+      }
+      state.steps.push(text)
     },
     answer(state, action: PayloadAction<{ answer: string; sources: Source[] }>) {
       state.answer = action.payload.answer
@@ -75,5 +89,5 @@ const streamSlice = createSlice({
   },
 })
 
-export const { start, stage, token, streamReset, answer, fail, toggleDeep, reset, goHome, setConversation } = streamSlice.actions
+export const { start, stage, token, step, answer, fail, toggleDeep, reset, goHome, setConversation } = streamSlice.actions
 export default streamSlice.reducer
