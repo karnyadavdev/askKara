@@ -141,6 +141,7 @@ class ToolRunner:
             "text": self._limit(result["text"]),
             "layer": result["layer"],
             "error": result["error"],
+            "reason": result.get("reason", ""),
         }
 
     async def _yada_scrape_many(self, args: dict) -> dict:
@@ -171,24 +172,25 @@ class ToolRunner:
                 return await self._yada.scrape(single_url, objective=objective)
 
         scraped = await asyncio.gather(*(guarded(url) for url in urls[: max(limit + 2, 5)]))
-        usable = [item for item in scraped if item["ok"]][:limit]
         results = [
             {
-                "ok": True,
+                "ok": item["ok"],
                 "title": item["title"],
                 "url": item["url"],
                 "text": self._limit(item["text"]),
                 "layer": item["layer"],
                 "error": item["error"],
+                "reason": item.get("reason", ""),
             }
-            for item in usable
+            for item in scraped[:limit]
         ]
+        any_ok = any(item["ok"] for item in results)
         return {
-            "ok": bool(results),
+            "ok": any_ok,
             "requested": len(urls),
             "returned": len(results),
             "results": results,
-            "error": "" if results else "No usable pages were scraped",
+            "error": "" if any_ok else "No usable pages were scraped",
         }
 
 

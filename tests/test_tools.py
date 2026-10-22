@@ -99,3 +99,27 @@ async def test_scrape_many_keeps_full_text_when_trim_disabled():
         "yada_scrape_many", {"urls": ["https://a.dev", "https://b.dev"]}
     )
     assert all(item["text"] == yada.text for item in response["results"])
+
+
+async def test_scrape_many_delivers_every_scrape_to_the_model():
+    class MixedYada:
+        async def scrape(self, url, objective=""):
+            good = "good" in url
+            return {
+                "ok": good,
+                "title": url,
+                "url": url,
+                "text": "real content" if good else "thin shell",
+                "layer": "fake",
+                "error": "",
+                "reason": "" if good else "metadata too thin",
+            }
+
+    _, response = await ToolRunner(MixedYada()).execute(
+        "yada_scrape_many", {"urls": ["https://good.dev", "https://thin.dev"]}
+    )
+
+    assert response["ok"] is True
+    assert [item["ok"] for item in response["results"]] == [True, False]
+    assert [item["text"] for item in response["results"]] == ["real content", "thin shell"]
+    assert response["results"][1]["reason"] == "metadata too thin"

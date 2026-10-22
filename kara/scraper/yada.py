@@ -40,15 +40,11 @@ def extract_payload(result: dict) -> tuple[str, str]:
     return title, re.sub(r"\s+", " ", text).strip()
 
 
-def bad_page(title: str, text: str) -> bool:
-    head = f"{title} {text[:1200]}".lower()
-    return (
-        "page not found" in head
-        or "404" in (title or "").lower()
-        or "access denied" in head
-        or "robot or human" in head
-        or "pardon our interruption" in head
-    )
+def yada_reason(data: dict) -> str:
+    attempt = data.get("best_attempt")
+    if isinstance(attempt, dict) and attempt.get("reason"):
+        return str(attempt["reason"])
+    return str(data.get("diagnosis") or "")
 
 
 class YadaClient:
@@ -100,7 +96,7 @@ class YadaClient:
             data = result.to_dict()
             title, text = extract_payload(data)
             text = trim_head_tail(text, 100_000)
-            ok = bool(data.get("success")) and len(text) > 350 and not bad_page(title, text)
+            ok = bool(data.get("success"))
             return {
                 "ok": ok,
                 "title": title or url,
@@ -108,6 +104,7 @@ class YadaClient:
                 "text": text,
                 "layer": data.get("layer_used") or "none",
                 "error": data.get("error", ""),
+                "reason": yada_reason(data),
             }
         except Exception as exc:
             return self._failure(url, str(exc))
@@ -132,7 +129,7 @@ class YadaClient:
 
         title, text = extract_payload(data)
         text = trim_head_tail(text, 100_000)
-        ok = bool(data.get("success")) and len(text) > 350 and not bad_page(title, text)
+        ok = bool(data.get("success"))
         return {
             "ok": ok,
             "title": title or url,
@@ -140,6 +137,7 @@ class YadaClient:
             "text": text,
             "layer": data.get("layer_used") or "none",
             "error": data.get("error", ""),
+            "reason": yada_reason(data),
         }
 
     @staticmethod
@@ -151,4 +149,5 @@ class YadaClient:
             "text": "",
             "layer": "none",
             "error": error,
+            "reason": error,
         }

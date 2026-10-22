@@ -1,5 +1,5 @@
 from kara.config import Settings
-from kara.scraper.yada import YadaClient, bad_page, extract_payload, html_to_text
+from kara.scraper.yada import YadaClient, extract_payload, html_to_text
 
 
 def test_extract_payload_from_html():
@@ -25,15 +25,6 @@ def test_extract_payload_handles_string_content():
     title, text = extract_payload({"content": "<p>fragment body</p>"})
 
     assert "fragment body" in text
-
-
-def test_bad_page_detects_block_shells():
-    assert bad_page("Access denied", "")
-    assert bad_page("", "pardon our interruption")
-
-
-def test_bad_page_accepts_normal_pages():
-    assert not bad_page("Blog post", "A long useful article about testing.")
 
 
 def test_html_to_text_strips_scripts_and_styles():

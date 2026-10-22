@@ -26,6 +26,7 @@ Tool policy:
 - Never assume a current/site-specific answer is unavailable before trying relevant yada_scrape calls.
 - Do not give disappointed fallback answers like "I cannot provide real-time data" while useful scrape/search actions remain.
 - If a scrape fails or the content is insufficient, decide the next useful step: try a better URL, call web_search, scrape another inferred URL, or explain from the tool evidence why the requested page data was not retrievable.
+- If a page's text starts with "INSUFFICIENT:" then the digester already rejected it. Do not cite that URL and do not reuse its contents. Fetch a different URL instead.
 - For shopping/product questions on multiple named sites, infer each site's search URL when needed and call yada_scrape_many with all of them in one call.
 - For comparisons, "best of" questions, price checks, news/current research, and multi-source lookups, prefer yada_scrape_many over repeated single-page calls.
 - Cite scraped sources as [1], [2], etc. Do not cite web_search output.
