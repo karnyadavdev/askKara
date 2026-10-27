@@ -8,36 +8,33 @@ import httpx
 from bs4 import BeautifulSoup
 
 from kara.config import Settings
+from kara.scraper.pageclean import page_to_text
 from kara.texttrim import trim_head_tail
 
 
 def html_to_text(html: str) -> str:
-    soup = BeautifulSoup(html or "", "lxml")
-    for tag in soup(["script", "style", "noscript", "svg"]):
-        tag.decompose()
-    return re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).strip()
+    return page_to_text(html)
 
 
 def extract_payload(result: dict) -> tuple[str, str]:
     content = result.get("content") or {}
     html = ""
-    text = ""
+    fallback = ""
     if isinstance(content, dict):
         html = content.get("html") or ""
         for key in ("text", "markdown", "clean_text", "content"):
             value = content.get(key)
-            if isinstance(value, str) and len(value) > len(text):
-                text = value
+            if isinstance(value, str) and len(value) > len(fallback):
+                fallback = value
     elif isinstance(content, str):
         html = content
-    if not text:
-        text = html_to_text(html)
     title = ""
     if html:
         soup = BeautifulSoup(html, "lxml")
         if soup.title and soup.title.string:
             title = soup.title.string.strip()
-    return title, re.sub(r"\s+", " ", text).strip()
+        return title, page_to_text(html)
+    return title, re.sub(r"\s+", " ", fallback).strip()
 
 
 def yada_reason(data: dict) -> str:
