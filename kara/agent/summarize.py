@@ -2,9 +2,9 @@ import asyncio
 
 from kara.llm.base import LLMError, LLMProvider
 from kara.prompts import SUMMARIZE_CHAR_LIMIT, build_summarize_prompt
-from kara.texttrim import trim_head_tail
+from kara.texttrim import cut_tail, trim_head_tail
 
-FALLBACK_CHAR_LIMIT = 15_000
+SUMMARIZE_INPUT_LIMIT = 30_000
 CONCURRENCY = 6
 
 
@@ -16,18 +16,21 @@ async def _summarize_one(
 ) -> str:
     if not text:
         return text
+    if len(text) <= SUMMARIZE_CHAR_LIMIT:
+        return text
+    payload = trim_head_tail(text, SUMMARIZE_INPUT_LIMIT)
     async with semaphore:
         try:
             reply = await provider.chat(
-                [{"role": "user", "content": build_summarize_prompt(question, text)}],
+                [{"role": "user", "content": build_summarize_prompt(question, payload)}],
                 reasoning_effort="low",
             )
         except LLMError:
-            return trim_head_tail(text, FALLBACK_CHAR_LIMIT)
+            return trim_head_tail(text, SUMMARIZE_CHAR_LIMIT)
     summary = (reply.content or "").strip()
     if not summary:
-        return trim_head_tail(text, FALLBACK_CHAR_LIMIT)
-    return summary[:SUMMARIZE_CHAR_LIMIT]
+        return trim_head_tail(text, SUMMARIZE_CHAR_LIMIT)
+    return cut_tail(summary, SUMMARIZE_CHAR_LIMIT)
 
 
 async def summarize_texts(provider: LLMProvider, question: str, texts: list[str]) -> list[str]:

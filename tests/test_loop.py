@@ -119,6 +119,93 @@ async def test_stage_labels_never_rewind_and_narration_becomes_a_step():
     assert "initializing" not in stages
 
 
+async def test_summarize_replaces_scraped_text_with_digest():
+    provider = FakeStreamProvider(
+        [
+            ChatReply(
+                tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://example.com"})]
+            ),
+            ChatReply(content="DIGESTED PAGE TEXT with facts"),
+            ChatReply(content="Composed answer [1]."),
+        ]
+    )
+
+    class LongRunner(FakeRunner):
+        async def execute(self, name, args):
+            name, response = await super().execute(name, args)
+            if name == "yada_scrape":
+                response["text"] = "word " * 2000
+            return name, response
+
+    result = await run_agent(
+        "Summarize https://example.com",
+        provider=provider,
+        runner=LongRunner(),
+        max_sources=5,
+        summarize=True,
+    )
+
+    assert result["answer"] == "Composed answer [1]."
+    assert result["sources"][0]["text"] == "DIGESTED PAGE TEXT with facts"
+
+
+async def test_summarize_passes_short_pages_through_free():
+    provider = FakeStreamProvider(
+        [
+            ChatReply(
+                tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://example.com"})]
+            ),
+            ChatReply(content="Composed answer [1]."),
+        ]
+    )
+
+    result = await run_agent(
+        "Summarize https://example.com",
+        provider=provider,
+        runner=FakeRunner(),
+        max_sources=5,
+        summarize=True,
+    )
+
+    assert result["answer"] == "Composed answer [1]."
+    assert result["sources"][0]["text"] == "useful page text"
+
+
+async def test_summarize_digests_failed_scrape_shell():
+    provider = FakeStreamProvider(
+        [
+            ChatReply(
+                tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://flaky.dev"})]
+            ),
+            ChatReply(content="DIGESTED FAILED SHELL"),
+            ChatReply(content="Composed answer [1]."),
+        ]
+    )
+
+    class FailedShellRunner(FakeRunner):
+        async def execute(self, name, args):
+            name, response = await super().execute(name, args)
+            if name == "yada_scrape":
+                response["ok"] = False
+                response["text"] = "partial shell " * 1000
+            return name, response
+
+    result = await run_agent(
+        "Summarize https://flaky.dev",
+        provider=provider,
+        runner=FailedShellRunner(),
+        max_sources=5,
+        summarize=True,
+    )
+
+    assert result["answer"] == "Composed answer [1]."
+    tool_messages = [
+        m for m in provider.calls[-1]
+        if m.get("role") == "tool" and "DIGESTED FAILED SHELL" in m.get("content", "")
+    ]
+    assert tool_messages
+
+
 async def test_step_limit_returns_honest_answer():
     result = await run_agent(
         "keep looping",

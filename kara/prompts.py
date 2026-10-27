@@ -25,8 +25,7 @@ Tool policy:
 - For direct URL/page questions, call yada_scrape with an objective that matches the user's request.
 - Never assume a current/site-specific answer is unavailable before trying relevant yada_scrape calls.
 - Do not give disappointed fallback answers like "I cannot provide real-time data" while useful scrape/search actions remain.
-- If a scrape fails or the content is insufficient, decide the next useful step: try a better URL, call web_search, scrape another inferred URL, or explain from the tool evidence why the requested page data was not retrievable.
-- If a page's text starts with "INSUFFICIENT:" then the digester already rejected it. Do not cite that URL and do not reuse its contents. Fetch a different URL instead.
+- If a scrape fails, decide the next useful step: try a better URL, call web_search, scrape another inferred URL, or explain from the tool evidence why the requested page data was not retrievable.
 - For shopping/product questions on multiple named sites, infer each site's search URL when needed and call yada_scrape_many with all of them in one call.
 - For comparisons, "best of" questions, price checks, news/current research, and multi-source lookups, prefer yada_scrape_many over repeated single-page calls.
 - Cite scraped sources as [1], [2], etc. Do not cite web_search output.
@@ -37,18 +36,20 @@ Tool policy:
 """.strip()
 
 
-SUMMARIZE_CHAR_LIMIT = 1500
+SUMMARIZE_CHAR_LIMIT = 6000
 
 
 def build_summarize_prompt(question: str, text: str) -> str:
-    return f"""You compress a scraped web page for a research agent.
+    return f"""You compress a scraped web page into a dense digest for a research agent.
 Research question: {question}
 Page content:
 {text}
 
-Write a dense summary in at most {SUMMARIZE_CHAR_LIMIT} characters:
-- Keep every fact, number, date, and name that answers the research question
-- Keep exact figures and units; never round or invent values
-- Drop navigation, cookie banners, ads, and site boilerplate
-If the content is insufficient, return INSUFFICIENT: <why>
-Return only the summary text."""
+Write a digest in at most {SUMMARIZE_CHAR_LIMIT} characters:
+- Keep every fact, number, date, name, and unit that could answer the research question
+- Copy tables as "cell | cell" rows and keep code blocks verbatim, indentation included
+- Keep exact quotes and figures; never round, paraphrase numbers, or invent values
+- Drop navigation, ads, and site boilerplate
+- Never declare the content insufficient; summarize what is actually there
+- If the content exceeds what fits, end cleanly at a sentence boundary with [TRUNCATED]
+Return only the digest text."""

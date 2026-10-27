@@ -156,7 +156,7 @@ async def run_agent(
             name, response = await runner.execute(call.name, call.arguments)
             tool_trace.append({"tool": name, "args": call.arguments, "ok": response.get("ok", True)})
 
-            if summarize and response.get("ok") and name in {"yada_scrape", "yada_scrape_many"}:
+            if summarize and name in {"yada_scrape", "yada_scrape_many"}:
                 await emit({"type": "stage", "stage": "digesting", "message": "Digesting sources..."})
                 if name == "yada_scrape":
                     response["text"] = (await summarize_texts(provider, question, [response.get("text") or ""]))[0]
