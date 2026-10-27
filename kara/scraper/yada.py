@@ -70,7 +70,7 @@ class YadaClient:
             return None
         return self._engine
 
-    async def scrape(self, url: str, objective: str = "") -> dict:
+    async def scrape(self, url: str) -> dict:
         mode = self._settings.yada_mode
         if mode == "off":
             return self._failure(url, "YADA disabled (YADA_MODE=off)")

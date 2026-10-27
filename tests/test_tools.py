@@ -1,6 +1,6 @@
 import pytest
 
-from kara.agent.tools import SourceBudget, ToolRunner, urls_in_text
+from kara.agent.tools import TOOL_SCHEMAS, SourceBudget, ToolRunner, urls_in_text
 
 from fakes import FakeYada
 
@@ -29,7 +29,7 @@ async def test_scrape_many_dedupes_and_caps_at_ten():
 
 async def test_scrape_many_reports_no_usable_pages():
     class DeadYada:
-        async def scrape(self, url, objective=""):
+        async def scrape(self, url):
             return {"ok": False, "title": url, "url": url, "text": "", "layer": "none", "error": "blocked"}
 
     name, response = await ToolRunner(DeadYada()).execute("yada_scrape_many", {"urls": ["https://a.dev", "https://b.dev"]})
@@ -70,7 +70,7 @@ class LongYada:
     def __init__(self):
         self.text = "H" + "m" * 40_000 + "T"
 
-    async def scrape(self, url, objective=""):
+    async def scrape(self, url):
         return {"ok": True, "title": "t", "url": url, "text": self.text, "layer": "fake", "error": ""}
 
 
@@ -103,7 +103,7 @@ async def test_scrape_many_keeps_full_text_when_trim_disabled():
 
 async def test_scrape_many_delivers_every_scrape_to_the_model():
     class MixedYada:
-        async def scrape(self, url, objective=""):
+        async def scrape(self, url):
             good = "good" in url
             return {
                 "ok": good,
@@ -150,3 +150,11 @@ def test_default_budget_matches_normal_mode_invariant():
     runner = ToolRunner(FakeYada(), max_sources=10)
     assert runner.budget.max_sources == 10
     assert runner.budget.total_chars == 10 * 10_000
+
+
+def test_objective_parameter_is_removed_everywhere():
+    from kara.prompts import build_system_prompt
+
+    for schema in TOOL_SCHEMAS:
+        assert "objective" not in schema["parameters"]["properties"]
+    assert "objective" not in build_system_prompt(max_sources=50)

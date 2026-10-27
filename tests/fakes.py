@@ -34,7 +34,7 @@ class FakeYada:
     def __init__(self):
         self.calls = []
 
-    async def scrape(self, url, objective=""):
+    async def scrape(self, url):
         self.calls.append(url)
         return {
             "ok": True,

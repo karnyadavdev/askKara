@@ -30,17 +30,12 @@ TOOL_SCHEMAS: list[dict] = [
         "description": (
             "Scrape a web page with YADA. Use this directly for URLs supplied by the user. "
             "Use this for URLs supplied by the user, URLs discovered through web_search, "
-            "or authoritative URLs you can infer from the question. Include the user's goal "
-            "in objective so YADA can use deeper extraction when needed."
+            "or authoritative URLs you can infer from the question."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "url": {"type": "string", "description": "The URL to scrape."},
-                "objective": {
-                    "type": "string",
-                    "description": "What to extract from the page, such as summary, latest value, comments, or first visible YouTube comment.",
-                },
             },
             "required": ["url"],
         },
@@ -60,10 +55,6 @@ TOOL_SCHEMAS: list[dict] = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "The source URLs to scrape. Include 2 to 10 URLs.",
-                },
-                "objective": {
-                    "type": "string",
-                    "description": "What to extract from all pages, such as prices, comparisons, summaries, or current facts.",
                 },
             },
             "required": ["urls"],
@@ -156,10 +147,9 @@ class ToolRunner:
 
     async def _yada_scrape(self, args: dict) -> dict:
         url = str(args.get("url") or "").strip()
-        objective = str(args.get("objective") or "").strip()
         if not url.startswith(("http://", "https://")):
             return {"ok": False, "error": "Invalid URL", "url": url}
-        result = await self._yada.scrape(url, objective=objective)
+        result = await self._yada.scrape(url)
         return {
             "ok": result["ok"],
             "title": result["title"],
@@ -172,7 +162,6 @@ class ToolRunner:
 
     async def _yada_scrape_many(self, args: dict) -> dict:
         raw_urls = args.get("urls") or []
-        objective = str(args.get("objective") or "").strip()
         if not isinstance(raw_urls, list):
             return {"ok": False, "error": "urls must be an array", "results": []}
 
@@ -195,7 +184,7 @@ class ToolRunner:
 
         async def guarded(single_url: str):
             async with sem:
-                return await self._yada.scrape(single_url, objective=objective)
+                return await self._yada.scrape(single_url)
 
         scraped = await asyncio.gather(*(guarded(url) for url in urls[:limit]))
         results = [
