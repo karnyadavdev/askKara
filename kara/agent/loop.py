@@ -7,6 +7,12 @@ from kara.prompts import build_system_prompt
 
 
 MAX_ATTEMPTS = 3
+MAX_EFFORT = "max"
+FALLBACK_EFFORT = "high"
+
+
+def _is_gateway_or_timeout(exc: LLMError) -> bool:
+    return exc.status_code == 504 or (exc.status_code is None and exc.retriable)
 
 
 _CITATION_RE = re.compile(r"^\s*(?:\d+[.)]|[-*•]|\[\d+\])\s*\S|^https?://\S", re.IGNORECASE)
@@ -55,6 +61,7 @@ async def run_agent(
     on_event=None,
     summarize: bool = False,
     history: list[dict] | None = None,
+    reasoning_effort: str = "low",
 ) -> dict:
     system = build_system_prompt(max_sources=max_sources)
     messages: list[dict] = [{"role": "system", "content": system}]
@@ -67,6 +74,7 @@ async def run_agent(
     round_text: list[str] = []
     attempts: dict[str, int] = {}
     budget = getattr(runner, "budget", None) or SourceBudget(max_sources, max_sources * TOOL_TEXT_LIMIT)
+    effort = reasoning_effort
 
     async def emit(payload: dict):
         if on_event:
@@ -88,9 +96,13 @@ async def run_agent(
         if i > 0:
             await emit({"type": "stage", "stage": "composing", "message": "Composing answer..."})
         try:
-            reply = await provider.chat_stream(messages, tools=TOOL_SCHEMAS, on_text=on_token)
-        except LLMError:
-            raise
+            reply = await provider.chat_stream(messages, tools=TOOL_SCHEMAS, on_text=on_token, reasoning_effort=effort)
+        except LLMError as exc:
+            if effort == MAX_EFFORT and _is_gateway_or_timeout(exc):
+                effort = FALLBACK_EFFORT
+                reply = await provider.chat_stream(messages, tools=TOOL_SCHEMAS, on_text=on_token, reasoning_effort=effort)
+            else:
+                raise
 
         if reply.tool_calls:
             await flush_step()

@@ -35,7 +35,7 @@ class Settings:
     mistral_model: str = "ministral-14b-latest"
     nim_api_key: str = ""
     nim_model: str = "z-ai/glm-5.3-flash"
-    llm_timeout: float = 90.0
+    llm_timeout: float = 300.0
 
     yada_mode: str = "import"
     yada_root: str = ""
@@ -56,6 +56,8 @@ class Settings:
     deep_batch_cap: int = 25
     deep_rate_hits: int = 3
     summarize_sources: bool = True
+    normal_reasoning_effort: str = "low"
+    deep_reasoning_effort: str = "high"
 
     host: str = "127.0.0.1"
     port: int = 4177
@@ -108,7 +110,7 @@ def get_settings() -> Settings:
         mistral_model=os.getenv("MISTRAL_MODEL", "ministral-14b-latest").strip(),
         nim_api_key=os.getenv("NIM_API_KEY", "").strip(),
         nim_model=os.getenv("NIM_MODEL", "z-ai/glm-5.3-flash").strip(),
-        llm_timeout=float(os.getenv("KARA_LLM_TIMEOUT", "90")),
+        llm_timeout=float(os.getenv("KARA_LLM_TIMEOUT", "300")),
         yada_mode=os.getenv("YADA_MODE", "import").strip().lower(),
         yada_root=os.getenv("YADA_ROOT", "").strip(),
         yada_api_url=os.getenv("YADA_API_URL", "").strip(),
@@ -127,6 +129,8 @@ def get_settings() -> Settings:
         deep_batch_cap=int(os.getenv("KARA_DEEP_BATCH_CAP", "25")),
         deep_rate_hits=int(os.getenv("KARA_DEEP_RATE_HITS", "3")),
         summarize_sources=_truthy("KARA_SUMMARIZE"),
+        normal_reasoning_effort=os.getenv("KARA_NORMAL_REASONING_EFFORT", "low").strip().lower(),
+        deep_reasoning_effort=os.getenv("KARA_DEEP_REASONING_EFFORT", "high").strip().lower(),
         host=os.getenv("KARA_HOST", "127.0.0.1").strip(),
         port=int(os.getenv("KARA_PORT", "4177")),
     )

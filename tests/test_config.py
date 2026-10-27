@@ -7,6 +7,23 @@ def test_defaults():
     assert settings.llm_chain == ("groq",)
     assert settings.max_sources_cap == 10
     assert settings.auth_required is False
+    assert settings.llm_timeout == 300.0
+    assert settings.normal_reasoning_effort == "low"
+    assert settings.deep_reasoning_effort == "high"
+
+
+def test_effort_and_timeout_env_defaults(monkeypatch):
+    from kara.config import get_settings
+
+    monkeypatch.delenv("KARA_LLM_TIMEOUT", raising=False)
+    monkeypatch.delenv("KARA_NORMAL_REASONING_EFFORT", raising=False)
+    monkeypatch.delenv("KARA_DEEP_REASONING_EFFORT", raising=False)
+    get_settings.cache_clear()
+    settings = get_settings()
+    assert settings.llm_timeout == 300.0
+    assert settings.normal_reasoning_effort == "low"
+    assert settings.deep_reasoning_effort == "high"
+    get_settings.cache_clear()
 
 
 def test_llm_ready_requires_a_chain_key():

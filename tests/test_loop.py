@@ -25,7 +25,7 @@ class FakeRunner:
 class AlwaysToolProvider(LLMProvider):
     name = "loop"
 
-    async def chat(self, messages, tools=None):
+    async def chat(self, messages, tools=None, reasoning_effort=None):
         call_count = sum(1 for m in messages if m.get("role") == "assistant")
         return ChatReply(
             tool_calls=[ToolCall(id=f"call_{call_count}", name="yada_scrape", arguments={"url": f"https://x.dev/{call_count}"})]
@@ -347,3 +347,54 @@ async def test_scrape_many_prefilters_already_scraped_urls():
     many_calls = [args for name, args in runner.calls if name == "yada_scrape_many"]
     assert many_calls[0]["urls"] == ["https://good.dev", "https://bad.dev"]
     assert many_calls[1]["urls"] == ["https://bad.dev"]
+
+
+async def test_run_agent_passes_reasoning_effort_to_provider():
+    provider = FakeStreamProvider([ChatReply(content="Answer [1].")])
+
+    await run_agent("hi", provider=provider, runner=FakeRunner(), reasoning_effort="high")
+
+    assert provider.efforts == ["high"]
+
+
+async def test_max_effort_falls_back_to_high_on_timeout():
+    from kara.llm.base import LLMError
+
+    provider = FakeStreamProvider(
+        [
+            LLMError("nim: network error: timed out", retriable=True),
+            ChatReply(content="Answer after fallback [1]."),
+        ]
+    )
+
+    result = await run_agent("hi", provider=provider, runner=FakeRunner(), reasoning_effort="max")
+
+    assert result["answer"] == "Answer after fallback [1]."
+    assert provider.efforts == ["max", "high"]
+
+
+async def test_max_effort_falls_back_to_high_on_504():
+    from kara.llm.base import LLMError
+
+    provider = FakeStreamProvider(
+        [
+            LLMError("nim: HTTP 504", status_code=504, retriable=True),
+            ChatReply(content="Answer after fallback [1]."),
+        ]
+    )
+
+    await run_agent("hi", provider=provider, runner=FakeRunner(), reasoning_effort="max")
+
+    assert provider.efforts == ["max", "high"]
+
+
+async def test_lower_effort_timeout_raises_without_fallback():
+    import pytest
+    from kara.llm.base import LLMError
+
+    provider = FakeStreamProvider([LLMError("nim: network error: timed out", retriable=True)])
+
+    with pytest.raises(LLMError):
+        await run_agent("hi", provider=provider, runner=FakeRunner(), reasoning_effort="low")
+
+    assert provider.efforts == ["low"]

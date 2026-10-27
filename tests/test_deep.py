@@ -98,3 +98,23 @@ def test_budget_invariant_is_cap_times_per_page():
     deep = build_runner(settings, None, deep=True)
     assert deep.budget.max_sources == 50
     assert deep.budget.total_chars == 50 * 6_000
+
+
+async def test_reasoning_effort_follows_mode(client, monkeypatch):
+    import kara.routers.ask as ask_module
+
+    captured = {}
+    real = ask_module.run_agent
+
+    async def spy(question, **kwargs):
+        captured.update(kwargs)
+        return await real(question, **kwargs)
+
+    monkeypatch.setattr(ask_module, "run_agent", spy)
+
+    await client.post("/api/ask/stream", json={"question": "normal q"})
+    assert captured["reasoning_effort"] == "low"
+
+    captured.clear()
+    await client.post("/api/ask/stream", json={"question": "deep q", "deep": True})
+    assert captured["reasoning_effort"] == "high"

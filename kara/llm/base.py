@@ -35,8 +35,10 @@ class LLMProvider(ABC):
     ) -> ChatReply:
         raise NotImplementedError
 
-    async def chat_stream(self, messages: list[dict], tools: list[dict] | None = None, on_text=None) -> ChatReply:
-        return await self.chat(messages, tools=tools)
+    async def chat_stream(
+        self, messages: list[dict], tools: list[dict] | None = None, on_text=None, reasoning_effort: str | None = None
+    ) -> ChatReply:
+        return await self.chat(messages, tools=tools, reasoning_effort=reasoning_effort)
 
 
 RETRIABLE_STATUS = {429, 500, 502, 503, 504}

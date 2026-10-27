@@ -140,8 +140,10 @@ class OpenAICompatibleProvider(LLMProvider):
 
         return parse_openai_reply(resp.model_dump())
 
-    async def chat_stream(self, messages: list[dict], tools: list[dict] | None = None, on_text=None) -> ChatReply:
-        body = self._base_body(messages, tools, stream=True)
+    async def chat_stream(
+        self, messages: list[dict], tools: list[dict] | None = None, on_text=None, reasoning_effort: str | None = None
+    ) -> ChatReply:
+        body = self._base_body(messages, tools, stream=True, reasoning_effort=reasoning_effort)
 
         content_parts: list[str] = []
         calls: dict[int, dict] = {}
@@ -204,7 +206,7 @@ class NIMProvider(OpenAICompatibleProvider):
                 attempt += 1
 
     async def chat_stream(
-        self, messages: list[dict], tools: list[dict] | None = None, on_text=None
+        self, messages: list[dict], tools: list[dict] | None = None, on_text=None, reasoning_effort: str | None = None
     ) -> ChatReply:
         attempt = 0
         streamed = False
@@ -217,7 +219,7 @@ class NIMProvider(OpenAICompatibleProvider):
 
         while True:
             try:
-                return await super().chat_stream(messages, tools=tools, on_text=forward)
+                return await super().chat_stream(messages, tools=tools, on_text=forward, reasoning_effort=reasoning_effort)
             except LLMError as exc:
                 if streamed or not exc.retriable or attempt >= self._retries:
                     raise

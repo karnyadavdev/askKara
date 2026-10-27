@@ -36,7 +36,9 @@ class ResilientProvider(LLMProvider):
                 last_error = exc
         raise last_error or LLMError("All LLM providers failed", retriable=True)
 
-    async def chat_stream(self, messages: list[dict], tools: list[dict] | None = None, on_text=None) -> ChatReply:
+    async def chat_stream(
+        self, messages: list[dict], tools: list[dict] | None = None, on_text=None, reasoning_effort: str | None = None
+    ) -> ChatReply:
         last_error: LLMError | None = None
         for provider in self._providers:
             emitted = False
@@ -48,7 +50,7 @@ class ResilientProvider(LLMProvider):
                     await on_text(text)
 
             try:
-                reply = await provider.chat_stream(messages, tools=tools, on_text=forward)
+                reply = await provider.chat_stream(messages, tools=tools, on_text=forward, reasoning_effort=reasoning_effort)
                 self._last_used = provider.name
                 return reply
             except LLMError as exc:
