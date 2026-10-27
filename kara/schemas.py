@@ -31,6 +31,6 @@ class TokenOut(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
-    max_sources: int = 8
+    max_sources: int | None = None
     deep: bool = False
     conversation_id: int | None = None

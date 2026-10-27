@@ -63,3 +63,38 @@ async def test_deep_batch_cap_allows_larger_scrape_batches():
     name, response = await runner.execute("yada_scrape_many", {"urls": urls})
     assert response["requested"] == 25
     assert len(yada.calls) == 25
+
+
+async def test_omitted_max_sources_uses_mode_default(client, monkeypatch):
+    import kara.routers.ask as ask_module
+
+    captured = {}
+    real = ask_module.run_agent
+
+    async def spy(question, **kwargs):
+        captured.update(kwargs)
+        return await real(question, **kwargs)
+
+    monkeypatch.setattr(ask_module, "run_agent", spy)
+
+    await client.post("/api/ask/stream", json={"question": "normal q"})
+    assert captured["max_sources"] == 10
+
+    captured.clear()
+    await client.post("/api/ask/stream", json={"question": "deep q", "deep": True})
+    assert captured["max_sources"] == 50
+
+
+def test_budget_invariant_is_cap_times_per_page():
+    from kara.config import Settings
+    from kara.deps import build_runner
+
+    settings = Settings()
+
+    normal = build_runner(settings, None, deep=False)
+    assert normal.budget.max_sources == 10
+    assert normal.budget.total_chars == 10 * 10_000
+
+    deep = build_runner(settings, None, deep=True)
+    assert deep.budget.max_sources == 50
+    assert deep.budget.total_chars == 50 * 6_000

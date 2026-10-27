@@ -3,7 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kara.agent.tools import ToolRunner
+from kara.agent.tools import SourceBudget, ToolRunner
 from kara.config import Settings, get_settings
 from kara.db import get_session
 from kara.llm.factory import ResilientProvider, build_provider
@@ -48,14 +48,17 @@ def search_key_for(settings: Settings) -> str:
 
 
 def build_runner(settings: Settings, yada: YadaClient, deep: bool = False, summarize: bool = False) -> ToolRunner:
+    max_sources = settings.deep_max_sources if deep else settings.max_sources_cap
+    budget_total = 300_000 if deep else 100_000
     return ToolRunner(
         yada,
-        max_sources=settings.deep_max_sources if deep else settings.max_sources_cap,
+        max_sources=max_sources,
         search_enabled=settings.search_enabled,
         search_provider=settings.search_provider,
         search_api_key=search_key_for(settings),
         batch_cap=settings.deep_batch_cap if deep else 10,
         trim_text=not summarize,
+        budget=SourceBudget(max_sources, budget_total),
     )
 
 

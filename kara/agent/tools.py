@@ -7,7 +7,7 @@ from kara.scraper.search import search_web
 from kara.scraper.yada import YadaClient
 from kara.texttrim import trim_head_tail
 
-TOOL_TEXT_LIMIT = 15_000
+TOOL_TEXT_LIMIT = 10_000
 
 TOOL_SCHEMAS: list[dict] = [
     {
@@ -72,6 +72,26 @@ TOOL_SCHEMAS: list[dict] = [
 ]
 
 
+class SourceBudget:
+    def __init__(self, max_sources: int, total_chars: int):
+        self.max_sources = max(1, max_sources)
+        self.total_chars = max(1, total_chars)
+        self.gathered = 0
+        self.used_chars = 0
+
+    @property
+    def sources_left(self) -> int:
+        return max(0, self.max_sources - self.gathered)
+
+    @property
+    def chars_left(self) -> int:
+        return max(0, self.total_chars - self.used_chars)
+
+    def add(self, chars: int) -> None:
+        self.gathered += 1
+        self.used_chars += max(0, chars)
+
+
 class ToolRunner:
     def __init__(
         self,
@@ -82,6 +102,7 @@ class ToolRunner:
         search_api_key: str = "",
         batch_cap: int = 10,
         trim_text: bool = True,
+        budget: SourceBudget | None = None,
     ):
         self._yada = yada
         self._max_sources = max_sources
@@ -90,6 +111,11 @@ class ToolRunner:
         self._search_api_key = search_api_key
         self._batch_cap = max(2, min(batch_cap, 40))
         self._trim_text = trim_text
+        self._budget = budget or SourceBudget(max_sources, max_sources * TOOL_TEXT_LIMIT)
+
+    @property
+    def budget(self) -> SourceBudget:
+        return self._budget
 
     def _limit(self, text: str) -> str:
         if not self._trim_text:
@@ -171,7 +197,7 @@ class ToolRunner:
             async with sem:
                 return await self._yada.scrape(single_url, objective=objective)
 
-        scraped = await asyncio.gather(*(guarded(url) for url in urls[: max(limit + 2, 5)]))
+        scraped = await asyncio.gather(*(guarded(url) for url in urls[:limit]))
         results = [
             {
                 "ok": item["ok"],

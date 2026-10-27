@@ -1,9 +1,12 @@
 import re
 
 from kara.agent.summarize import summarize_texts
-from kara.agent.tools import TOOL_SCHEMAS, ToolRunner, dumps, urls_in_text
+from kara.agent.tools import TOOL_SCHEMAS, SourceBudget, ToolRunner, TOOL_TEXT_LIMIT, dumps, urls_in_text
 from kara.llm.base import LLMError, LLMProvider
 from kara.prompts import build_system_prompt
+
+
+MAX_ATTEMPTS = 3
 
 
 _CITATION_RE = re.compile(r"^\s*(?:\d+[.)]|[-*•]|\[\d+\])\s*\S|^https?://\S", re.IGNORECASE)
@@ -62,6 +65,8 @@ async def run_agent(
     scraped_urls: set[str] = set()
     tool_trace: list[dict] = []
     round_text: list[str] = []
+    attempts: dict[str, int] = {}
+    budget = getattr(runner, "budget", None) or SourceBudget(max_sources, max_sources * TOOL_TEXT_LIMIT)
 
     async def emit(payload: dict):
         if on_event:
@@ -139,8 +144,10 @@ async def run_agent(
             elif call.name == "yada_scrape_many":
                 await emit({"type": "stage", "stage": "fetching", "message": "Fetching source pages..."})
 
+            args = dict(call.arguments)
+
             if call.name == "yada_scrape":
-                url = str(call.arguments.get("url") or "").strip()
+                url = str(args.get("url") or "").strip()
                 if url in scraped_urls:
                     messages.append(
                         {
@@ -152,8 +159,67 @@ async def run_agent(
                     )
                     tool_trace.append({"tool": call.name, "args": call.arguments, "ok": True, "skipped": True})
                     continue
+                if not budget.sources_left or not budget.chars_left:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": call.name,
+                            "content": dumps({"ok": False, "error": "Source limit reached. Answer using the sources already gathered."}),
+                        }
+                    )
+                    tool_trace.append({"tool": call.name, "args": call.arguments, "ok": False, "skipped": True})
+                    continue
+                if attempts.get(url, 0) >= MAX_ATTEMPTS:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": call.name,
+                            "content": dumps({"ok": False, "error": "This URL already failed three times. Do not retry it."}),
+                        }
+                    )
+                    tool_trace.append({"tool": call.name, "args": call.arguments, "ok": False, "skipped": True})
+                    continue
 
-            name, response = await runner.execute(call.name, call.arguments)
+            if call.name == "yada_scrape_many":
+                if not budget.sources_left or not budget.chars_left:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": call.name,
+                            "content": dumps({"ok": False, "error": "Source limit reached. Answer using the sources already gathered.", "results": []}),
+                        }
+                    )
+                    tool_trace.append({"tool": call.name, "args": call.arguments, "ok": False, "skipped": True})
+                    continue
+                raw_urls = args.get("urls") or []
+                candidates = raw_urls if isinstance(raw_urls, list) else []
+                filtered: list[str] = []
+                for candidate in candidates:
+                    candidate = str(candidate or "").strip()
+                    if not candidate.startswith(("http://", "https://")):
+                        continue
+                    if candidate in scraped_urls or attempts.get(candidate, 0) >= MAX_ATTEMPTS:
+                        continue
+                    filtered.append(candidate)
+                    if len(filtered) >= budget.sources_left:
+                        break
+                if not filtered:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call.id,
+                            "name": call.name,
+                            "content": dumps({"ok": True, "already_scraped": True, "results": [], "error": "Every requested URL is already gathered or exhausted. Answer with what you have."}),
+                        }
+                    )
+                    tool_trace.append({"tool": call.name, "args": call.arguments, "ok": True, "skipped": True})
+                    continue
+                args["urls"] = filtered
+
+            name, response = await runner.execute(call.name, args)
             tool_trace.append({"tool": name, "args": call.arguments, "ok": response.get("ok", True)})
 
             if summarize and name in {"yada_scrape", "yada_scrape_many"}:
@@ -168,25 +234,32 @@ async def run_agent(
                     for item, summary in zip(results, summaries):
                         item["text"] = summary
 
-            if name == "yada_scrape" and response.get("ok"):
+            if name == "yada_scrape":
                 url = response.get("url") or ""
-                scraped_urls.add(url)
-                used_sources.append(
-                    {
-                        "title": response.get("title") or response.get("url"),
-                        "url": response.get("url"),
-                        "text": response.get("text") or "",
-                        "layer": response.get("layer") or "none",
-                    }
-                )
-            elif name == "yada_scrape_many" and response.get("ok"):
+                if response.get("ok"):
+                    if url not in scraped_urls:
+                        scraped_urls.add(url)
+                        budget.add(len(response.get("text") or ""))
+                        used_sources.append(
+                            {
+                                "title": response.get("title") or response.get("url"),
+                                "url": response.get("url"),
+                                "text": response.get("text") or "",
+                                "layer": response.get("layer") or "none",
+                            }
+                        )
+                else:
+                    attempts[url] = attempts.get(url, 0) + 1
+            elif name == "yada_scrape_many":
                 for source in response.get("results", []):
-                    if not source.get("ok"):
-                        continue
                     url = source.get("url") or ""
+                    if not source.get("ok"):
+                        attempts[url] = attempts.get(url, 0) + 1
+                        continue
                     if url in scraped_urls:
                         continue
                     scraped_urls.add(url)
+                    budget.add(len(source.get("text") or ""))
                     used_sources.append(
                         {
                             "title": source.get("title") or source.get("url"),

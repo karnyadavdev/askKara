@@ -246,3 +246,104 @@ def test_needs_page_or_current_data():
     assert needs_page_or_current_data("What is the price today?")
     assert needs_page_or_current_data("check https://example.com")
     assert not needs_page_or_current_data("Explain quicksort")
+
+
+async def test_source_cap_stops_scraping_and_reports_limit():
+    provider = FakeProvider(
+        [
+            ChatReply(tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://a.dev"})]),
+            ChatReply(tool_calls=[ToolCall(id="c2", name="yada_scrape", arguments={"url": "https://b.dev"})]),
+            ChatReply(tool_calls=[ToolCall(id="c3", name="yada_scrape", arguments={"url": "https://c.dev"})]),
+            ChatReply(content="Composed answer [1][2]."),
+        ]
+    )
+    runner = FakeRunner()
+
+    result = await run_agent("compare a b c", provider=provider, runner=runner, max_sources=2)
+
+    assert len(result["sources"]) == 2
+    fetched = [args.get("url") for _, args in runner.calls]
+    assert "https://c.dev" not in fetched
+    refused = [
+        m for m in provider.calls[-1]
+        if m.get("role") == "tool" and "Source limit reached" in m.get("content", "")
+    ]
+    assert refused
+
+
+async def test_successful_url_is_locked_and_not_refetched():
+    provider = FakeProvider(
+        [
+            ChatReply(tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://a.dev"})]),
+            ChatReply(tool_calls=[ToolCall(id="c2", name="yada_scrape", arguments={"url": "https://a.dev"})]),
+            ChatReply(content="Composed answer [1]."),
+        ]
+    )
+    runner = FakeRunner()
+
+    result = await run_agent("summarize a", provider=provider, runner=runner, max_sources=5)
+
+    assert len(runner.calls) == 1
+    assert len(result["sources"]) == 1
+    locked = [
+        m for m in provider.calls[-1]
+        if m.get("role") == "tool" and "Already scraped" in m.get("content", "")
+    ]
+    assert locked
+
+
+async def test_failing_url_gets_three_attempts_then_stops():
+    class FailRunner(FakeRunner):
+        async def execute(self, name, args):
+            self.calls.append((name, args))
+            return name, {"ok": False, "url": args.get("url"), "text": "", "error": "boom"}
+
+    provider = FakeProvider(
+        [
+            ChatReply(tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://flaky.dev"})]),
+            ChatReply(tool_calls=[ToolCall(id="c2", name="yada_scrape", arguments={"url": "https://flaky.dev"})]),
+            ChatReply(tool_calls=[ToolCall(id="c3", name="yada_scrape", arguments={"url": "https://flaky.dev"})]),
+            ChatReply(tool_calls=[ToolCall(id="c4", name="yada_scrape", arguments={"url": "https://flaky.dev"})]),
+            ChatReply(content="Could not fetch it."),
+        ]
+    )
+    runner = FailRunner()
+
+    await run_agent("fetch flaky", provider=provider, runner=runner, max_sources=5)
+
+    assert len(runner.calls) == 3
+    refused = [
+        m for m in provider.calls[-1]
+        if m.get("role") == "tool" and "failed three times" in m.get("content", "")
+    ]
+    assert refused
+
+
+async def test_scrape_many_prefilters_already_scraped_urls():
+    class MixedRunner(FakeRunner):
+        async def execute(self, name, args):
+            self.calls.append((name, args))
+            if name == "yada_scrape_many":
+                results = []
+                for url in args.get("urls", []):
+                    ok = "bad" not in url
+                    results.append(
+                        {"ok": ok, "title": url, "url": url, "text": "text" if ok else "", "layer": "fake", "error": "" if ok else "boom"}
+                    )
+                return name, {"ok": any(r["ok"] for r in results), "results": results}
+            return await super().execute(name, args)
+
+    provider = FakeProvider(
+        [
+            ChatReply(tool_calls=[ToolCall(id="c1", name="yada_scrape_many", arguments={"urls": ["https://good.dev", "https://bad.dev"]})]),
+            ChatReply(tool_calls=[ToolCall(id="c2", name="yada_scrape_many", arguments={"urls": ["https://good.dev", "https://bad.dev"]})]),
+            ChatReply(content="Composed answer [1]."),
+        ]
+    )
+    runner = MixedRunner()
+
+    await run_agent("compare good and bad", provider=provider, runner=runner, max_sources=10)
+
+    many_calls = [args for name, args in runner.calls if name == "yada_scrape_many"]
+    assert many_calls[0]["urls"] == ["https://good.dev", "https://bad.dev"]
+    assert many_calls[1]["urls"] == ["https://bad.dev"]

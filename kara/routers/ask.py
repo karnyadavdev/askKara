@@ -95,7 +95,7 @@ async def ask_stream(
         max_sources = max(1, min(int(payload.max_sources or settings.deep_max_sources), settings.deep_max_sources))
         max_steps = settings.deep_max_steps
     else:
-        max_sources = max(1, min(int(payload.max_sources or 8), settings.max_sources_cap))
+        max_sources = max(1, min(int(payload.max_sources or 10), settings.max_sources_cap))
         max_steps = settings.max_steps
     user_id = user.id if user is not None else None
 

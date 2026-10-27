@@ -1,6 +1,6 @@
 import pytest
 
-from kara.agent.tools import ToolRunner, urls_in_text
+from kara.agent.tools import SourceBudget, ToolRunner, urls_in_text
 
 from fakes import FakeYada
 
@@ -74,17 +74,17 @@ class LongYada:
         return {"ok": True, "title": "t", "url": url, "text": self.text, "layer": "fake", "error": ""}
 
 
-async def test_scrape_trims_to_fifteen_k_by_default():
+async def test_scrape_trims_to_ten_k_by_default():
     _, response = await ToolRunner(LongYada()).execute("yada_scrape", {"url": "https://a.dev"})
-    assert len(response["text"]) == 15_000
+    assert len(response["text"]) == 10_000
     assert "[TRUNCATED: middle omitted]" in response["text"]
 
 
-async def test_scrape_many_trims_to_fifteen_k_by_default():
+async def test_scrape_many_trims_to_ten_k_by_default():
     _, response = await ToolRunner(LongYada(), max_sources=2).execute(
         "yada_scrape_many", {"urls": ["https://a.dev", "https://b.dev"]}
     )
-    assert all(len(item["text"]) == 15_000 for item in response["results"])
+    assert all(len(item["text"]) == 10_000 for item in response["results"])
 
 
 async def test_scrape_keeps_full_text_when_trim_disabled():
@@ -123,3 +123,30 @@ async def test_scrape_many_delivers_every_scrape_to_the_model():
     assert [item["ok"] for item in response["results"]] == [True, False]
     assert [item["text"] for item in response["results"]] == ["real content", "thin shell"]
     assert response["results"][1]["reason"] == "metadata too thin"
+
+
+async def test_scrape_many_no_longer_overfetches():
+    yada = FakeYada()
+    urls = [f"https://s{i}.dev" for i in range(6)]
+    _, response = await ToolRunner(yada, max_sources=2).execute("yada_scrape_many", {"urls": urls})
+
+    assert len(yada.calls) == 2
+    assert len(response["results"]) == 2
+
+
+def test_source_budget_tracks_sources_and_chars():
+    budget = SourceBudget(2, 100)
+    assert budget.sources_left == 2
+    assert budget.chars_left == 100
+
+    budget.add(60)
+    budget.add(30)
+    assert budget.sources_left == 0
+    assert budget.chars_left == 10
+    assert budget.used_chars == 90
+
+
+def test_default_budget_matches_normal_mode_invariant():
+    runner = ToolRunner(FakeYada(), max_sources=10)
+    assert runner.budget.max_sources == 10
+    assert runner.budget.total_chars == 10 * 10_000
