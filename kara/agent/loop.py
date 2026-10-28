@@ -16,7 +16,7 @@ def _is_gateway_or_timeout(exc: LLMError) -> bool:
 
 
 _CITATION_RE = re.compile(r"^\s*(?:\d+[.)]|[-*•]|\[\d+\])\s*\S|^https?://\S", re.IGNORECASE)
-_CJK_CITE_RE = re.compile(r"【\s*(\d+(?:\s*,\s*\d+)*)(?:\s*[†‡※*](?:\s*】)?|\s*】|(?=\s|$))")
+_CJK_CITE_RE = re.compile(r"【\s*(\d+(?:\s*,\s*\d+)*)(?:[†‡※*]?[^\s】]*】|[†‡※*]|(?=\s|$))")
 
 
 def _is_citation_line(line: str) -> bool:
