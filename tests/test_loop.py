@@ -104,7 +104,7 @@ async def test_stage_labels_never_rewind_and_narration_becomes_a_step():
 
     types = [event["type"] for event in events]
     assert "stream_reset" not in types
-    assert "token" not in types
+    assert "token" in types
 
     researching = [event for event in events if event["type"] == "stage" and event["stage"] == "researching"]
     assert len(researching) == 1

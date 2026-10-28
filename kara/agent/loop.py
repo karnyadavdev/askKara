@@ -16,10 +16,18 @@ def _is_gateway_or_timeout(exc: LLMError) -> bool:
 
 
 _CITATION_RE = re.compile(r"^\s*(?:\d+[.)]|[-*•]|\[\d+\])\s*\S|^https?://\S", re.IGNORECASE)
+_CJK_CITE_RE = re.compile(r"【\s*(\d+(?:\s*,\s*\d+)*)(?:\s*[†‡※*](?:\s*】)?|\s*】|(?=\s|$))")
 
 
 def _is_citation_line(line: str) -> bool:
     return bool(_CITATION_RE.match(line))
+
+
+def normalize_citations(text: str) -> str:
+    def repl(match: re.Match) -> str:
+        return "".join(f"[{part.strip()}]" for part in match.group(1).split(","))
+
+    return _CJK_CITE_RE.sub(repl, text)
 
 
 def clean_answer_text(text: str) -> str:
@@ -27,6 +35,7 @@ def clean_answer_text(text: str) -> str:
     text = text.replace("\u2011", "-").replace("\u202f", " ").replace("\xa0", " ")
     if not text:
         return text
+    text = normalize_citations(text)
 
     lines = text.splitlines()
     cut_at = None
@@ -82,6 +91,7 @@ async def run_agent(
 
     async def on_token(text: str) -> None:
         round_text.append(text)
+        await emit({"type": "token", "text": text})
 
     async def flush_step() -> None:
         text = "".join(round_text).strip()

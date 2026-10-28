@@ -115,14 +115,14 @@ async def test_provider_auth_failure_emits_error_event(client):
     assert "authentication" in last["message"]
 
 
-async def test_no_partial_tokens_streamed_into_answer(client):
+async def test_tokens_streamed_to_frontend(client):
     client.app.dependency_overrides[get_provider] = lambda: FakeStreamProvider([ChatReply(content="Hello world.")])
 
     resp = await ask(client, "What is the capital of France?")
 
     events = parse_ndjson(resp.text)
     types = [event["type"] for event in events]
-    assert "token" not in types
+    assert "token" in types
     assert "stream_reset" not in types
     assert events[-1]["type"] == "done"
     assert events[-1]["answer"] == "Hello world."
@@ -144,7 +144,7 @@ async def test_model_narration_becomes_a_step_instead_of_a_reset(client):
     events = parse_ndjson(resp.text)
     types = [event["type"] for event in events]
     assert "stream_reset" not in types
-    assert "token" not in types
+    assert "token" in types
 
     steps = [event for event in events if event["type"] == "step"]
     assert len(steps) == 1

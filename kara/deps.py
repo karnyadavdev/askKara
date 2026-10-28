@@ -49,7 +49,7 @@ def search_key_for(settings: Settings) -> str:
 
 def build_runner(settings: Settings, yada: YadaClient, deep: bool = False, summarize: bool = False) -> ToolRunner:
     max_sources = settings.deep_max_sources if deep else settings.max_sources_cap
-    budget_total = 300_000 if deep else 100_000
+    budget_total = max_sources * 6_000 if deep else 100_000
     return ToolRunner(
         yada,
         max_sources=max_sources,

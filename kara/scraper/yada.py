@@ -264,17 +264,7 @@ class YadaClient:
             )
             data = result.to_dict()
             title, text = extract_payload(data, base_url=url)
-            text = trim_head_tail(text, 100_000)
-            ok = bool(data.get("success"))
-            return {
-                "ok": ok,
-                "title": title or url,
-                "url": url,
-                "text": text,
-                "layer": data.get("layer_used") or "none",
-                "error": data.get("error", ""),
-                "reason": yada_reason(data),
-            }
+            return self._build_result(url, data, title, text)
         except Exception as exc:
             return self._failure(url, str(exc))
 
@@ -297,8 +287,21 @@ class YadaClient:
             return self._failure(url, str(exc))
 
         title, text = extract_payload(data, base_url=url)
+        return self._build_result(url, data, title, text)
+
+    def _build_result(self, url: str, data: dict, title: str, text: str) -> dict:
         text = trim_head_tail(text, 100_000)
-        ok = bool(data.get("success"))
+        ok = bool(data.get("success")) and bool(text.strip())
+        if not ok and data.get("success"):
+            return {
+                "ok": False,
+                "title": title or url,
+                "url": url,
+                "text": "",
+                "layer": data.get("layer_used") or "none",
+                "error": "no text content extracted from page",
+                "reason": "YADA returned success but page yielded 0 characters of text",
+            }
         return {
             "ok": ok,
             "title": title or url,

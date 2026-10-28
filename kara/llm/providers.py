@@ -103,9 +103,20 @@ def map_openai_error(name: str, exc: Exception) -> LLMError:
 class OpenAICompatibleProvider(LLMProvider):
     name = "openai-compatible"
 
-    def __init__(self, name: str, api_key: str, model: str, base_url: str, timeout: float = 90.0):
+    def __init__(
+        self,
+        name: str,
+        api_key: str,
+        model: str,
+        base_url: str,
+        timeout: float = 90.0,
+        max_retries: int = 3,
+        backoff_base: float = 1.0,
+    ):
         self.name = name
         self._model = model
+        self._max_retries = max_retries
+        self._backoff_base = backoff_base
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=timeout, max_retries=0)
 
     def _base_body(self, messages, tools=None, stream=False, reasoning_effort=None) -> dict:
@@ -133,100 +144,72 @@ class OpenAICompatibleProvider(LLMProvider):
     ) -> ChatReply:
         body = self._base_body(messages, tools, reasoning_effort=reasoning_effort)
         last_error: LLMError | None = None
-        for attempt in range(3):
+        for attempt in range(self._max_retries):
             try:
                 resp = await self._client.chat.completions.create(**body)
                 return parse_openai_reply(resp.model_dump())
             except Exception as exc:
                 error = map_openai_error(self.name, exc)
-                if not error.retriable or attempt == 2:
+                if not error.retriable or attempt == self._max_retries - 1:
                     raise error from exc
                 last_error = error
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(self._backoff_base ** attempt)
         raise last_error
 
     async def chat_stream(
         self, messages: list[dict], tools: list[dict] | None = None, on_text=None, reasoning_effort: str | None = None
     ) -> ChatReply:
         body = self._base_body(messages, tools, stream=True, reasoning_effort=reasoning_effort)
+        last_error: LLMError | None = None
+        for attempt in range(self._max_retries):
+            content_parts: list[str] = []
+            calls: dict[int, dict] = {}
+            emitted = False
 
-        content_parts: list[str] = []
-        calls: dict[int, dict] = {}
+            async def forward(text: str) -> None:
+                nonlocal emitted
+                emitted = True
+                content_parts.append(text)
+                if on_text:
+                    await on_text(text)
 
-        try:
-            stream = await self._client.chat.completions.create(**body)
-            async for chunk in stream:
-                if not chunk.choices:
-                    continue
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    text = delta.content if isinstance(delta.content, str) else str(delta.content)
-                    content_parts.append(text)
-                    if on_text:
-                        await on_text(text)
-                for frag in delta.tool_calls or []:
-                    slot = calls.setdefault(frag.index, {"id": "", "name": "", "arguments": ""})
-                    if frag.id:
-                        slot["id"] = frag.id
-                    if frag.function and frag.function.name:
-                        slot["name"] = frag.function.name
-                    if frag.function and frag.function.arguments:
-                        args = frag.function.arguments
-                        slot["arguments"] += args if isinstance(args, str) else str(args)
-        except Exception as exc:
-            raise map_openai_error(self.name, exc) from exc
-
-        tool_calls = [
-            ToolCall(
-                id=slot["id"] or f"call_{i}",
-                name=slot["name"],
-                arguments=parse_tool_arguments(slot["arguments"] or None),
-            )
-            for i, (_, slot) in enumerate(sorted(calls.items()))
-        ]
-        content = "".join(content_parts)
-        return ChatReply(content=content if content else None, tool_calls=tool_calls)
+            try:
+                stream = await self._client.chat.completions.create(**body)
+                async for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        text = delta.content if isinstance(delta.content, str) else str(delta.content)
+                        await forward(text)
+                    for frag in delta.tool_calls or []:
+                        slot = calls.setdefault(frag.index, {"id": "", "name": "", "arguments": ""})
+                        if frag.id:
+                            slot["id"] = frag.id
+                        if frag.function and frag.function.name:
+                            slot["name"] = frag.function.name
+                        if frag.function and frag.function.arguments:
+                            args = frag.function.arguments
+                            slot["arguments"] += args if isinstance(args, str) else str(args)
+                tool_calls = [
+                    ToolCall(
+                        id=slot["id"] or f"call_{i}",
+                        name=slot["name"],
+                        arguments=parse_tool_arguments(slot["arguments"] or None),
+                    )
+                    for i, (_, slot) in enumerate(sorted(calls.items()))
+                ]
+                content = "".join(content_parts)
+                return ChatReply(content=content if content else None, tool_calls=tool_calls)
+            except Exception as exc:
+                error = map_openai_error(self.name, exc)
+                if emitted or not error.retriable or attempt == self._max_retries - 1:
+                    raise error from exc
+                last_error = error
+                await asyncio.sleep(self._backoff_base ** attempt)
+        raise last_error
 
 
 class NIMProvider(OpenAICompatibleProvider):
-    def __init__(self, api_key: str, model: str, timeout: float = 90.0, retries: int = 2):
-        super().__init__("nim", api_key, model, "https://integrate.api.nvidia.com/v1", timeout)
-        self._retries = retries
-        self._backoff = (1.0, 3.0)
-
-    async def chat(
-        self,
-        messages: list[dict],
-        tools: list[dict] | None = None,
-        reasoning_effort: str | None = None,
-    ) -> ChatReply:
-        attempt = 0
-        while True:
-            try:
-                return await super().chat(messages, tools=tools, reasoning_effort=reasoning_effort)
-            except LLMError as exc:
-                if not exc.retriable or attempt >= self._retries:
-                    raise
-                await asyncio.sleep(self._backoff[min(attempt, len(self._backoff) - 1)])
-                attempt += 1
-
-    async def chat_stream(
-        self, messages: list[dict], tools: list[dict] | None = None, on_text=None, reasoning_effort: str | None = None
-    ) -> ChatReply:
-        attempt = 0
-        streamed = False
-
-        async def forward(text: str) -> None:
-            nonlocal streamed
-            streamed = True
-            if on_text:
-                await on_text(text)
-
-        while True:
-            try:
-                return await super().chat_stream(messages, tools=tools, on_text=forward, reasoning_effort=reasoning_effort)
-            except LLMError as exc:
-                if streamed or not exc.retriable or attempt >= self._retries:
-                    raise
-                await asyncio.sleep(self._backoff[min(attempt, len(self._backoff) - 1)])
-                attempt += 1
+    def __init__(self, api_key: str, model: str, timeout: float = 90.0, max_retries: int = 2, backoff_base: float = 1.5):
+        super().__init__("nim", api_key, model, "https://integrate.api.nvidia.com/v1", timeout, max_retries, backoff_base)

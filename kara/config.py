@@ -51,8 +51,8 @@ class Settings:
     trust_proxy: bool = False
     max_steps: int = 12
     max_sources_cap: int = 10
-    deep_max_steps: int = 30
-    deep_max_sources: int = 50
+    deep_max_steps: int = 20
+    deep_max_sources: int = 35
     deep_batch_cap: int = 25
     deep_rate_hits: int = 3
     summarize_sources: bool = True
@@ -124,8 +124,8 @@ def get_settings() -> Settings:
         trust_proxy=_truthy("KARA_TRUST_PROXY", "0"),
         max_steps=int(os.getenv("KARA_MAX_STEPS", "12")),
         max_sources_cap=int(os.getenv("KARA_MAX_SOURCES_CAP", "10")),
-        deep_max_steps=int(os.getenv("KARA_DEEP_MAX_STEPS", "30")),
-        deep_max_sources=int(os.getenv("KARA_DEEP_MAX_SOURCES", "50")),
+        deep_max_steps=int(os.getenv("KARA_DEEP_MAX_STEPS", "20")),
+        deep_max_sources=int(os.getenv("KARA_DEEP_MAX_SOURCES", "35")),
         deep_batch_cap=int(os.getenv("KARA_DEEP_BATCH_CAP", "25")),
         deep_rate_hits=int(os.getenv("KARA_DEEP_RATE_HITS", "3")),
         summarize_sources=_truthy("KARA_SUMMARIZE"),

@@ -14,8 +14,8 @@ async def test_deep_request_raises_caps_and_steps(client, monkeypatch):
         json={"question": "deep question", "max_sources": 99, "deep": True},
     )
     assert resp.status_code == 200
-    assert captured["max_sources"] == 50
-    assert captured["max_steps"] == 30
+    assert captured["max_sources"] == 35
+    assert captured["max_steps"] == 20
     assert captured["summarize"] is False
 
 
@@ -82,7 +82,7 @@ async def test_omitted_max_sources_uses_mode_default(client, monkeypatch):
 
     captured.clear()
     await client.post("/api/ask/stream", json={"question": "deep q", "deep": True})
-    assert captured["max_sources"] == 50
+    assert captured["max_sources"] == 35
 
 
 def test_budget_invariant_is_cap_times_per_page():
@@ -96,8 +96,8 @@ def test_budget_invariant_is_cap_times_per_page():
     assert normal.budget.total_chars == 10 * 10_000
 
     deep = build_runner(settings, None, deep=True)
-    assert deep.budget.max_sources == 50
-    assert deep.budget.total_chars == 50 * 6_000
+    assert deep.budget.max_sources == 35
+    assert deep.budget.total_chars == 35 * 6_000
 
 
 async def test_reasoning_effort_follows_mode(client, monkeypatch):
