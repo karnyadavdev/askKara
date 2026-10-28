@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
@@ -132,6 +133,11 @@ BLOCK_TAGS = (
     "label",
 )
 JUNK_TEXT_LIMIT = 400
+NAV_LINK_LIMIT = 12
+EXTRAS_LIMIT = 1500
+CORE_TEXT_SHARE = 0.4
+CORE_TEXT_MIN = 200
+CORE_TAGS = ("html", "body", "main", "article")
 CTA_TEXT_LIMIT = 80
 CTA_TEXT = (
     "sign up",
@@ -209,12 +215,25 @@ def _is_junk_cta(tag: Tag) -> bool:
     return True
 
 
-def _decide(tag: Tag) -> str | None:
+def _text_len(tag: Tag) -> int:
+    return len(_collapse(tag.get_text(" ", strip=True)))
+
+
+def _core_ids(soup: BeautifulSoup) -> set[int]:
+    core = {id(tag) for tag in soup.find_all(CORE_TAGS)}
+    for heading in soup.find_all("h1"):
+        if heading.find_parent(("nav", "header", "footer", "aside")):
+            continue
+        core.update(id(parent) for parent in heading.parents)
+    return core
+
+
+def _decide(tag: Tag, total_chars: int, core_ids: set[int]) -> str | None:
     if tag.name in PROTECTED_TAGS:
         return None
     action: str | None = None
     if tag.name == "nav":
-        action = "delete"
+        action = "move"
     elif tag.name in MOVE_TAGS:
         action = "move"
     else:
@@ -229,12 +248,20 @@ def _decide(tag: Tag) -> str | None:
         action = "move"
     if action is None:
         return None
+    if id(tag) in core_ids:
+        return None
+    span = _text_len(tag)
     if action == "delete":
         if tag.find(PROTECTED_TAGS):
             return None
-        if len(_collapse(tag.get_text(" ", strip=True))) >= JUNK_TEXT_LIMIT:
+        if _is_nav_like(tag):
             return "move"
-    return action
+        if span >= JUNK_TEXT_LIMIT:
+            return "move"
+        return "delete"
+    if span >= CORE_TEXT_MIN and span > total_chars * CORE_TEXT_SHARE:
+        return None
+    return "move"
 
 
 def _span_value(cell: Tag, attr: str) -> int:
@@ -273,6 +300,67 @@ def _render_table(table: Tag) -> str:
     return "\n".join(lines)
 
 
+def _resolve_href(href, base_url: str | None) -> str:
+    if not href:
+        return ""
+    value = str(href).strip()
+    if not value or value.startswith("#"):
+        return ""
+    lowered = value.casefold()
+    if lowered.startswith(("javascript:", "data:")):
+        return ""
+    if base_url:
+        return urljoin(base_url, value)
+    return value
+
+
+def _is_nav_like(tag: Tag) -> bool:
+    if tag.name == "nav":
+        return True
+    for name in _tag_names(tag):
+        if "nav" in _words(name) or "navigation" in name.casefold():
+            return True
+    return False
+
+
+def _render_nav(nav: Tag, base_url: str | None, limit: int = NAV_LINK_LIMIT) -> tuple[str, int]:
+    lines: list[str] = []
+    skipped = 0
+    for link in nav.find_all("a"):
+        text = _collapse(link.get_text(" ", strip=True))
+        href = _resolve_href(link.get("href"), base_url)
+        label = ""
+        if text and href:
+            label = f"- {text} ({href})"
+        elif text:
+            label = f"- {text}"
+        elif href:
+            label = f"- {href}"
+        if not label:
+            continue
+        if len(lines) >= limit:
+            skipped += 1
+            continue
+        lines.append(label)
+    if not lines and not skipped:
+        return _render(nav), 0
+    used = len(lines)
+    if skipped:
+        lines.append(f"[+{skipped} nav links omitted]")
+    return "[nav links]\n" + "\n".join(lines), used
+
+
+def _cap_extras(text: str) -> str:
+    if len(text) <= EXTRAS_LIMIT:
+        return text
+    window = text[:EXTRAS_LIMIT]
+    cut = max(window.rfind("\n"), window.rfind(" "))
+    if cut < EXTRAS_LIMIT // 2:
+        cut = EXTRAS_LIMIT
+    omitted = len(text) - cut
+    return window[:cut].rstrip() + f"\n[+{omitted} chars omitted]"
+
+
 def _render(root: Tag) -> str:
     if root is None:
         return ""
@@ -293,6 +381,13 @@ def _render(root: Tag) -> str:
             continue
         pre.replace_with(store(pre.get_text("").strip("\n")))
 
+    for image in list(root.find_all("img")):
+        alt = _collapse(image.get("alt") or "")
+        if alt:
+            image.replace_with(store(f"[image: {alt}]"))
+        else:
+            image.decompose()
+
     for tag in root.find_all(BLOCK_TAGS):
         tag.insert_before("\n")
         tag.insert_after("\n")
@@ -308,7 +403,7 @@ def _render(root: Tag) -> str:
     return text.strip()
 
 
-def page_to_text(html: str) -> str:
+def page_to_text(html: str, base_url: str | None = None) -> str:
     if not html:
         return ""
     html = html.replace("\ue000", "").replace("\ue001", "")
@@ -323,13 +418,16 @@ def page_to_text(html: str) -> str:
     for tag in soup.find_all(DROP_TAGS):
         tag.decompose()
 
+    total_chars = _text_len(soup.body or soup)
+    core_ids = _core_ids(soup)
+
     deleted: set[int] = set()
     for tag in list(soup.find_all(True)):
         if tag.parent is None or tag.name in ("html", "body"):
             continue
         if any(id(parent) in deleted for parent in tag.parents):
             continue
-        if _decide(tag) == "delete":
+        if _decide(tag, total_chars, core_ids) == "delete":
             deleted.add(id(tag))
             tag.decompose()
 
@@ -339,10 +437,21 @@ def page_to_text(html: str) -> str:
             continue
         if any(id(parent) in deleted for parent in tag.parents):
             continue
-        if _decide(tag) == "move":
+        if _decide(tag, total_chars, core_ids) == "move":
             deleted.add(id(tag))
             moved.append(tag.extract())
 
     parts = [rendered_first, _render(soup.body or soup)]
-    parts.extend(_render(tag) for tag in moved)
+    extras: list[str] = []
+    nav_left = NAV_LINK_LIMIT
+    for tag in moved:
+        if _is_nav_like(tag):
+            block, used = _render_nav(tag, base_url, nav_left)
+            nav_left -= used
+        else:
+            block = _render(tag)
+        if block:
+            extras.append(block)
+    if extras:
+        parts.append("[page extras]\n" + _cap_extras("\n\n".join(extras)))
     return "\n\n".join(part for part in parts if part).strip()

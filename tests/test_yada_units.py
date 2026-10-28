@@ -68,7 +68,7 @@ def test_cleaner_empty_input():
     assert page_to_text("") == ""
 
 
-def test_cleaner_drops_labelled_junk():
+def test_cleaner_drops_labelled_junk_and_demotes_nav():
     html = (
         "<body><nav>nav junk</nav>"
         '<div class="ad-slot">buy now</div>'
@@ -78,7 +78,8 @@ def test_cleaner_drops_labelled_junk():
     text = page_to_text(html)
 
     assert "real content" in text
-    assert "nav junk" not in text
+    assert "nav junk" in text
+    assert text.index("real content") < text.index("nav junk")
     assert "buy now" not in text
     assert "we use cookies" not in text
 
@@ -123,11 +124,15 @@ def test_cleaner_rescues_protected_content_in_junk_block():
 
 def test_cleaner_moves_long_junk_text_instead_of_deleting():
     long_text = "IMPORTANT " * 50
-    html = f'<body><p>main</p><div class="advertisement">{long_text}</div></body>'
+    filler = "".join(
+        f"<p>filler paragraph {i} with enough words to keep the junk share low</p>"
+        for i in range(20)
+    )
+    html = f'<body><p>main</p>{filler}<div class="advertisement">{long_text}</div></body>'
     text = page_to_text(html)
 
     assert "IMPORTANT" in text
-    assert text.index("main") < text.index("IMPORTANT")
+    assert text.index("filler paragraph 19") < text.index("IMPORTANT")
 
 
 def test_cleaner_word_matching_avoids_false_positives():
@@ -308,3 +313,200 @@ def test_cleaner_ignores_garbage_span_values():
     text = page_to_text(html)
 
     assert "x | y" in text
+
+
+def test_cleaner_keeps_wrapper_with_junk_class_in_place():
+    wrapped = "WRAPPED ARTICLE " * 20
+    trailing = "TRAILING NOTE " * 8
+    html = (
+        f'<body><div class="content-with-sidebar"><p>{wrapped}</p></div>'
+        f"<p>{trailing}</p></body>"
+    )
+    text = page_to_text(html)
+
+    assert "WRAPPED ARTICLE" in text
+    assert text.index("WRAPPED ARTICLE") < text.index("TRAILING NOTE")
+
+
+def test_cleaner_keeps_big_move_match_in_place():
+    body = "ARTICLE BODY TEXT " * 60
+    html = f'<body><div class="sidebar">{body}</div><p>short tail</p></body>'
+    text = page_to_text(html)
+
+    assert "ARTICLE BODY TEXT" in text
+    assert text.index("ARTICLE BODY TEXT") < text.index("short tail")
+
+
+def test_cleaner_keeps_h1_ancestors_in_place():
+    html = (
+        '<body><div class="related-posts"><h1>Real Headline</h1>'
+        "<p>the story</p></div><p>tail note</p></body>"
+    )
+    text = page_to_text(html)
+
+    assert text.index("Real Headline") < text.index("tail note")
+
+
+def test_cleaner_does_not_protect_h1_inside_site_chrome():
+    links = "".join(f'<a href="/t{i}">tutorial {i}</a>' for i in range(8))
+    html = (
+        "<body>"
+        f'<nav id="top-nav-bar"><h1>Site</h1><div>{links}</div></nav>'
+        "<main><h1>Real Title</h1><p>the body copy</p></main></body>"
+    )
+    text = page_to_text(html)
+
+    assert text.index("the body copy") < text.index("tutorial 0")
+    assert text.index("Real Title") < text.index("tutorial 0")
+
+
+def test_cleaner_treats_div_nav_as_link_index():
+    links = "".join(f'<a href="/t{i}">tutorial {i}</a>' for i in range(14))
+    html = (
+        f'<body><div id="top-nav-bar">{links}</div>'
+        "<main><h1>Real Title</h1><p>the body copy</p></main></body>"
+    )
+    text = page_to_text(html)
+
+    assert text.index("the body copy") < text.index("tutorial 0")
+    assert "tutorial 11" in text
+    assert "tutorial 12" not in text
+
+
+def test_cleaner_keeps_main_and_article_tags():
+    html = (
+        '<body><main class="ad-slot"><p>MAIN BODY</p></main>'
+        '<article class="newsletter"><p>ARTICLE BODY</p></article></body>'
+    )
+    text = page_to_text(html)
+
+    assert "MAIN BODY" in text
+    assert "ARTICLE BODY" in text
+
+
+def test_cleaner_turns_nav_into_link_index():
+    html = (
+        "<body><p>ARTICLE BODY</p><nav>"
+        '<a href="/page2">Next page</a>'
+        '<a href="/report.pdf">Download PDF</a>'
+        "</nav></body>"
+    )
+    text = page_to_text(html, base_url="https://example.com/news/story")
+
+    assert "ARTICLE BODY" in text
+    assert "Next page (https://example.com/page2)" in text
+    assert "Download PDF (https://example.com/report.pdf)" in text
+    assert text.index("ARTICLE BODY") < text.index("Next page")
+
+
+def test_cleaner_caps_nav_links():
+    links = "".join(f'<a href="/p{i}">link {i}</a>' for i in range(20))
+    html = f"<body><p>ARTICLE BODY</p><nav>{links}</nav></body>"
+    text = page_to_text(html)
+
+    assert "link 0" in text
+    assert "link 11" in text
+    assert "link 12" not in text
+    assert "[+8 nav links omitted]" in text
+
+
+def test_cleaner_caps_and_labels_extras():
+    filler = "".join(
+        f"<p>main paragraph {i} with a reasonable amount of text for the page</p>"
+        for i in range(100)
+    )
+    junk = "RELATED ITEM " * 200
+    html = f'<body>{filler}<footer><p>{junk}</p></footer></body>'
+    text = page_to_text(html)
+
+    assert "[page extras]" in text
+    assert "RELATED ITEM" in text
+    assert "[+" in text
+    assert "chars omitted]" in text
+
+
+def test_cleaner_nav_links_survive_large_extras():
+    filler = "".join(
+        f"<p>main paragraph {i} with enough words for the page</p>" for i in range(100)
+    )
+    nav = "".join(f'<a href="/n{i}">nav {i}</a>' for i in range(12))
+    sidebar = "SIDEBAR TEXT " * 230
+    html = f"<body>{filler}<nav>{nav}</nav><aside><p>{sidebar}</p></aside></body>"
+    text = page_to_text(html)
+
+    assert "nav 0" in text
+    assert "nav 11" in text
+    assert "SIDEBAR TEXT" in text
+    assert "[+" in text
+
+
+def test_cleaner_keeps_image_alt_text():
+    html = (
+        "<body><p>before</p>"
+        '<img src="chart.png" alt="Revenue rose 40 percent in 2025">'
+        "<p>after</p></body>"
+    )
+    text = page_to_text(html)
+
+    assert text.index("before") < text.index("Revenue rose 40 percent in 2025")
+    assert text.index("Revenue rose 40 percent in 2025") < text.index("after")
+
+
+def test_extract_payload_adds_page_info_header_from_jsonld():
+    html = (
+        "<html><head><script type='application/ld+json'>"
+        '{"datePublished":"2026-03-15","author":{"name":"Jane Doe"}}'
+        "</script></head><body><p>Article body</p></body></html>"
+    )
+    title, text = extract_payload({"content": {"html": html}})
+
+    assert text.startswith("[page info: published 2026-03-15 | author Jane Doe]")
+
+
+def test_extract_payload_reads_meta_and_time():
+    html = (
+        "<html><head>"
+        '<meta property="article:published_time" content="2026-01-02T10:00:00Z">'
+        '<meta name="author" content="Sam Lee">'
+        "</head><body><p>Article body</p></body></html>"
+    )
+    title, text = extract_payload({"content": {"html": html}})
+
+    assert "published 2026-01-02T10:00:00Z" in text
+    assert "author Sam Lee" in text
+
+
+def test_extract_payload_omits_page_info_without_metadata():
+    title, text = extract_payload(
+        {"content": {"html": "<html><body><p>plain</p></body></html>"}}
+    )
+
+    assert text == "plain"
+
+
+def test_extract_payload_resolves_nav_links_against_result_url():
+    html = "<body><p>body</p><nav><a href='/next'>Next</a></nav></body>"
+    title, text = extract_payload(
+        {"content": {"html": html}, "url": "https://example.com/a/b"}
+    )
+
+    assert "https://example.com/next" in text
+
+
+def test_extract_payload_prefers_jsonld_node_matching_page_url():
+    html = (
+        "<html><head><script type='application/ld+json'>"
+        '{"@graph":['
+        '{"@type":"NewsArticle","url":"https://example.com/other",'
+        '"datePublished":"2020-01-01","author":"Wrong"},'
+        '{"@type":"NewsArticle","url":"https://example.com/story",'
+        '"datePublished":"2026-05-05","author":"Right"}'
+        "]}"
+        "</script></head><body><p>body</p></body></html>"
+    )
+    title, text = extract_payload(
+        {"content": {"html": html}, "url": "https://example.com/story"}
+    )
+
+    assert "published 2026-05-05" in text
+    assert "author Right" in text
