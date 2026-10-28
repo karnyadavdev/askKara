@@ -132,6 +132,32 @@ BLOCK_TAGS = (
     "label",
 )
 JUNK_TEXT_LIMIT = 400
+CTA_TEXT_LIMIT = 80
+CTA_TEXT = (
+    "sign up",
+    "signup",
+    "register",
+    "create account",
+    "join our",
+    "subscribe",
+    "newsletter",
+    "log in",
+    "login",
+    "sign in",
+    "follow us",
+    "enable notification",
+    "accept all",
+    "manage preference",
+    "do not sell",
+    "cookie settings",
+    "get the app",
+    "download our",
+    "book now",
+    "buy now",
+    "shop now",
+    "add to cart",
+)
+_CONTENT_ANCESTORS = ("main", "article")
 _SENTINEL = "\ue000{}\ue001"
 _SPACE_RE = re.compile(r"[^\S\n]+")
 _BLANK_RE = re.compile(r"\n{3,}")
@@ -166,6 +192,23 @@ def _tag_names(tag: Tag) -> list[str]:
     return names
 
 
+CTA_TAGS = ("a", "button")
+
+
+def _is_junk_cta(tag: Tag) -> bool:
+    if tag.name not in CTA_TAGS:
+        return False
+    text = _collapse(tag.get_text(" ", strip=True)).casefold()
+    if not text or len(text) > CTA_TEXT_LIMIT:
+        return False
+    if not any(pattern in text for pattern in CTA_TEXT):
+        return False
+    for parent in tag.parents:
+        if parent.name in _CONTENT_ANCESTORS:
+            return False
+    return True
+
+
 def _decide(tag: Tag) -> str | None:
     if tag.name in PROTECTED_TAGS:
         return None
@@ -182,6 +225,8 @@ def _decide(tag: Tag) -> str | None:
             if _matches(name, MOVE_SUBSTRING, MOVE_WORDS):
                 action = "move"
                 break
+    if action is None and _is_junk_cta(tag):
+        action = "move"
     if action is None:
         return None
     if action == "delete":

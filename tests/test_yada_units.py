@@ -243,3 +243,29 @@ def test_cleaner_pre_inside_table_keeps_code_content():
     assert "line one" in text
     assert "line two" in text
     assert "other cell" in text
+
+
+def test_cleaner_demotes_bare_header_cta_link():
+    html = (
+        "<body><header><a href='/login'>Log in</a> "
+        "<a href='/signup'>Sign up for our newsletter</a></header>"
+        "<main><h1>Real Title</h1><p>the body copy</p></main></body>"
+    )
+    text = page_to_text(html)
+
+    assert "Real Title" in text
+    assert "the body copy" in text
+    assert "Sign up for our newsletter" in text
+    assert text.index("the body copy") < text.index("Sign up for our newsletter")
+
+
+def test_cleaner_keeps_inline_cta_link_inside_article():
+    html = (
+        "<body><article><p>You can <a href='/signup'>sign up</a> "
+        "for the workshop any time.</p><p>more detail</p></article></body>"
+    )
+    text = page_to_text(html)
+
+    assert "sign up" in text
+    assert "for the workshop any time" in text
+    assert text.index("sign up") < text.index("more detail")
