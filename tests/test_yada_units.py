@@ -269,3 +269,42 @@ def test_cleaner_keeps_inline_cta_link_inside_article():
     assert "sign up" in text
     assert "for the workshop any time" in text
     assert text.index("sign up") < text.index("more detail")
+
+
+def test_cleaner_expands_rowspan_under_right_header():
+    html = (
+        "<body><table>"
+        "<tr><th>Store</th><th>Price</th><th>Stock</th></tr>"
+        '<tr><td rowspan="2">Acme</td><td>499</td><td>In stock</td></tr>'
+        "<tr><td>479</td><td>3 left</td></tr>"
+        "</table></body>"
+    )
+    text = page_to_text(html)
+
+    assert "Store | Price | Stock" in text
+    assert "Acme | 499 | In stock" in text
+    assert "Acme | 479 | 3 left" in text
+
+
+def test_cleaner_expands_colspan_across_columns():
+    html = (
+        "<body><table>"
+        '<tr><th colspan="2">Product</th><th>Price</th></tr>'
+        "<tr><td>A</td><td>B</td><td>10</td></tr>"
+        "</table></body>"
+    )
+    text = page_to_text(html)
+
+    assert "Product | Product | Price" in text
+    assert "A | B | 10" in text
+
+
+def test_cleaner_ignores_garbage_span_values():
+    html = (
+        "<body><table>"
+        '<tr><td colspan="abc" rowspan="-3">x</td><td>y</td></tr>'
+        "</table></body>"
+    )
+    text = page_to_text(html)
+
+    assert "x | y" in text

@@ -237,18 +237,40 @@ def _decide(tag: Tag) -> str | None:
     return action
 
 
+def _span_value(cell: Tag, attr: str) -> int:
+    raw = cell.get(attr)
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 1
+    return max(1, min(value, 100))
+
+
 def _render_table(table: Tag) -> str:
-    rows: list[str] = []
-    for row in table.find_all("tr"):
-        cells = [
-            _collapse(cell.get_text(" ", strip=True))
-            for cell in row.find_all(("td", "th"), recursive=False)
-        ]
-        if cells:
-            rows.append(" | ".join(cells))
-    if not rows:
+    occupied: dict[tuple[int, int], str] = {}
+    col_count = 0
+    for r, row in enumerate(table.find_all("tr")):
+        c = 0
+        for cell in row.find_all(("td", "th"), recursive=False):
+            while (r, c) in occupied:
+                c += 1
+            text = _collapse(cell.get_text(" ", strip=True))
+            colspan = _span_value(cell, "colspan")
+            rowspan = _span_value(cell, "rowspan")
+            for dr in range(rowspan):
+                for dc in range(colspan):
+                    occupied[(r + dr, c + dc)] = text
+            col_count = max(col_count, c + colspan)
+            c += colspan
+    if not occupied:
         return _collapse(table.get_text(" ", strip=True))
-    return "\n".join(rows)
+    max_row = max(r for (r, _) in occupied)
+    lines = []
+    for r in range(max_row + 1):
+        if not any((r, c) in occupied for c in range(col_count)):
+            continue
+        lines.append(" | ".join(occupied.get((r, c), "") for c in range(col_count)))
+    return "\n".join(lines)
 
 
 def _render(root: Tag) -> str:
