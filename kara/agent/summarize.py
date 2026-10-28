@@ -5,7 +5,7 @@ from kara.prompts import SUMMARIZE_CHAR_LIMIT, build_summarize_prompt
 from kara.texttrim import cut_tail, trim_head_tail
 
 SUMMARIZE_INPUT_LIMIT = 30_000
-CONCURRENCY = 6
+CONCURRENCY = 3
 
 
 async def _summarize_one(

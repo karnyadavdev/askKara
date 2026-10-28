@@ -132,13 +132,18 @@ class OpenAICompatibleProvider(LLMProvider):
         reasoning_effort: str | None = None,
     ) -> ChatReply:
         body = self._base_body(messages, tools, reasoning_effort=reasoning_effort)
-
-        try:
-            resp = await self._client.chat.completions.create(**body)
-        except Exception as exc:
-            raise map_openai_error(self.name, exc) from exc
-
-        return parse_openai_reply(resp.model_dump())
+        last_error: LLMError | None = None
+        for attempt in range(3):
+            try:
+                resp = await self._client.chat.completions.create(**body)
+                return parse_openai_reply(resp.model_dump())
+            except Exception as exc:
+                error = map_openai_error(self.name, exc)
+                if not error.retriable or attempt == 2:
+                    raise error from exc
+                last_error = error
+                await asyncio.sleep(2 ** attempt)
+        raise last_error
 
     async def chat_stream(
         self, messages: list[dict], tools: list[dict] | None = None, on_text=None, reasoning_effort: str | None = None

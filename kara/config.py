@@ -34,7 +34,7 @@ class Settings:
     mistral_api_key: str = ""
     mistral_model: str = "ministral-14b-latest"
     nim_api_key: str = ""
-    nim_model: str = "z-ai/glm-5.3-flash"
+    nim_model: str = "nvidia/nemotron-3-ultra-550b-a55b"
     llm_timeout: float = 300.0
 
     yada_mode: str = "import"
@@ -109,7 +109,7 @@ def get_settings() -> Settings:
         mistral_api_key=os.getenv("MISTRAL_API_KEY", "").strip(),
         mistral_model=os.getenv("MISTRAL_MODEL", "ministral-14b-latest").strip(),
         nim_api_key=os.getenv("NIM_API_KEY", "").strip(),
-        nim_model=os.getenv("NIM_MODEL", "z-ai/glm-5.3-flash").strip(),
+        nim_model=os.getenv("NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b").strip(),
         llm_timeout=float(os.getenv("KARA_LLM_TIMEOUT", "300")),
         yada_mode=os.getenv("YADA_MODE", "import").strip().lower(),
         yada_root=os.getenv("YADA_ROOT", "").strip(),
