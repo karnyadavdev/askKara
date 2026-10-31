@@ -153,7 +153,8 @@ async def test_model_narration_becomes_a_step_instead_of_a_reset(client):
     stages = [event.get("stage") for event in events if event["type"] == "stage"]
     assert stages[0] == "researching"
     assert "fetching" in stages
-    assert "composing" in stages
+    assert "reviewing" in stages
+    assert "composing" not in stages
     assert "initializing" not in stages
 
     assert events[-1]["type"] == "done"

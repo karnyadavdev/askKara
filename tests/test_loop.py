@@ -75,7 +75,7 @@ async def test_tool_call_path_collects_sources_and_stages():
     assert result["answer"] == "Composed answer [1]."
     assert result["sources"][0]["url"] == "https://example.com"
     stages = [event.get("stage") for event in events]
-    assert "fetching" in stages and "composing" in stages
+    assert "fetching" in stages and "reviewing" in stages
 
 
 async def test_stage_labels_never_rewind_and_narration_becomes_a_step():
@@ -115,8 +115,37 @@ async def test_stage_labels_never_rewind_and_narration_becomes_a_step():
     stages = [event["stage"] for event in events if event["type"] == "stage"]
     assert stages[0] == "researching"
     assert "fetching" in stages
-    assert "composing" in stages
+    assert "reviewing" in stages
+    assert "composing" not in stages
     assert "initializing" not in stages
+
+
+async def test_composing_label_reserved_for_the_final_turn():
+    provider = FakeStreamProvider(
+        [
+            ChatReply(
+                tool_calls=[ToolCall(id="c1", name="yada_scrape", arguments={"url": "https://example.com"})]
+            ),
+            ChatReply(content="Final answer [1]."),
+        ]
+    )
+    events: list[dict] = []
+
+    async def on_event(payload):
+        events.append(payload)
+
+    await run_agent(
+        "Summarize https://example.com",
+        provider=provider,
+        runner=FakeRunner(),
+        max_sources=5,
+        max_steps=2,
+        on_event=on_event,
+    )
+
+    stages = [event["stage"] for event in events if event["type"] == "stage"]
+    assert stages[-1] == "composing"
+    assert "reviewing" not in stages
 
 
 async def test_summarize_replaces_scraped_text_with_digest():

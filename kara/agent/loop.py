@@ -104,7 +104,12 @@ async def run_agent(
     for i in range(max_steps):
         round_text.clear()
         if i > 0:
-            await emit({"type": "stage", "stage": "composing", "message": "Composing answer..."})
+            last_turn = i >= max_steps - 1
+            has_research = bool(used_sources or tool_trace)
+            if has_research and not last_turn:
+                await emit({"type": "stage", "stage": "reviewing", "message": "Reviewing sources..."})
+            else:
+                await emit({"type": "stage", "stage": "composing", "message": "Composing answer..."})
         try:
             reply = await provider.chat_stream(messages, tools=TOOL_SCHEMAS, on_text=on_token, reasoning_effort=effort)
         except LLMError as exc:
