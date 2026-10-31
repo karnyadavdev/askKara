@@ -210,3 +210,41 @@ async def test_legacy_frontend_removed(client):
         resp = await client.get(path)
 
         assert resp.status_code == 404
+
+
+async def test_slow_stream_emits_pings(client, monkeypatch):
+    import asyncio
+
+    import kara.routers.ask as ask_mod
+
+    monkeypatch.setattr(ask_mod, "PING_INTERVAL_S", 0.3)
+
+    class SlowProvider(FakeProvider):
+        async def chat(self, messages, tools=None, reasoning_effort=None):
+            await asyncio.sleep(1.0)
+            return await super().chat(messages, tools=tools, reasoning_effort=reasoning_effort)
+
+    client.app.dependency_overrides[get_provider] = lambda: SlowProvider([ChatReply(content="Late answer.")])
+
+    resp = await ask(client, "Take your time")
+
+    events = parse_ndjson(resp.text)
+    pings = [event for event in events if event["type"] == "ping"]
+    assert len(pings) >= 2
+    assert all(isinstance(ping["t"], float) for ping in pings)
+    assert events[-1]["type"] == "done"
+    assert events[-1]["answer"] == "Late answer."
+
+
+async def test_llm_error_is_logged_and_emitted(client, caplog):
+    client.app.dependency_overrides[get_provider] = lambda: FakeProvider(
+        [LLMError("nim: network error: boom", retriable=True)]
+    )
+
+    with caplog.at_level("WARNING", logger="kara.ask"):
+        resp = await ask(client, "Fail please")
+
+    events = parse_ndjson(resp.text)
+    assert events[-1]["type"] == "error"
+    assert "network error" in events[-1]["message"]
+    assert any("network error" in record.message for record in caplog.records)

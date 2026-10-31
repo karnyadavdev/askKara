@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -17,6 +19,10 @@ from kara.schemas import AskRequest
 from kara.scraper.yada import YadaClient
 
 router = APIRouter(tags=["ask"])
+
+logger = logging.getLogger("kara.ask")
+
+PING_INTERVAL_S = 10.0
 
 _rate_limiter = SlidingWindowLimiter(max_hits=15, window_seconds=300.0)
 _deep_limiter = SlidingWindowLimiter(max_hits=3, window_seconds=300.0)
@@ -103,6 +109,7 @@ async def ask_stream(
     async def events():
         yield _line({"type": "conversation", "id": conversation.id})
         queue: asyncio.Queue[dict] = asyncio.Queue()
+        last_emit = time.monotonic()
 
         async def on_event(event_payload: dict) -> None:
             await queue.put(event_payload)
@@ -129,12 +136,14 @@ async def ask_stream(
                     try:
                         result = task.result()
                     except LLMError as exc:
+                        logger.warning("ask stream llm error: %s", exc)
                         if exc.status_code == 429:
                             yield _line({"type": "error", "message": "rate_limited", "retryable": True})
                         else:
                             yield _line({"type": "error", "message": str(exc)[:300], "retryable": bool(exc.retriable)})
                         return
                     except Exception:
+                        logger.exception("ask stream failed")
                         yield _line({"type": "error", "message": "Internal research error", "retryable": False})
                         return
 
@@ -173,8 +182,13 @@ async def ask_stream(
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=0.25)
                 except asyncio.TimeoutError:
+                    now = time.monotonic()
+                    if now - last_emit >= PING_INTERVAL_S:
+                        last_emit = now
+                        yield _line({"type": "ping", "t": time.time()})
                     continue
                 if event.get("type") in {"stage", "token", "step"}:
+                    last_emit = time.monotonic()
                     yield _line(event)
         finally:
             if not task.done():
