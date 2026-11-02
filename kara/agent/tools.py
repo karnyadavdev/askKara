@@ -1,3 +1,4 @@
+import ast
 import asyncio
 import json
 import re
@@ -68,7 +69,73 @@ TOOL_SCHEMAS: list[dict] = [
             "required": ["urls"],
         },
     },
+    {
+        "name": "calculator",
+        "description": (
+            "Evaluate an arithmetic expression exactly. Use this for any math on numbers "
+            "taken from sources: sums, differences, percentages, unit rates. "
+            "Never do arithmetic in your head when a source number is involved."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "Arithmetic only: digits, + - * / // % ** and parentheses. No words, no units.",
+                },
+            },
+            "required": ["expression"],
+        },
+    },
 ]
+
+EXPRESSION_CHAR_LIMIT = 200
+_ALLOWED_NODES = (
+    ast.Expression,
+    ast.BinOp,
+    ast.UnaryOp,
+    ast.Constant,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.FloorDiv,
+    ast.Mod,
+    ast.Pow,
+    ast.UAdd,
+    ast.USub,
+    ast.Load,
+    ast.Tuple,
+)
+
+
+def safe_calculate(expression: str) -> tuple[bool, str]:
+    """Evaluate arithmetic only. Rejects names, calls, attributes, comprehensions."""
+    text = str(expression or "").strip()
+    if not text:
+        return False, "Empty expression"
+    if len(text) > EXPRESSION_CHAR_LIMIT:
+        return False, f"Expression too long (max {EXPRESSION_CHAR_LIMIT} characters)"
+    try:
+        tree = ast.parse(text, mode="eval")
+    except SyntaxError:
+        return False, "Not valid arithmetic"
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and not isinstance(node.value, (int, float)):
+            return False, "Only numbers are allowed"
+        if not isinstance(node, _ALLOWED_NODES):
+            return False, "Only arithmetic operators are allowed"
+    try:
+        result = eval(compile(tree, "<calculator>", "eval"), {"__builtins__": {}}, {})
+    except ZeroDivisionError:
+        return False, "Division by zero"
+    except (OverflowError, ValueError):
+        return False, "Math error"
+    if isinstance(result, float):
+        result = round(result, 10)
+        if result.is_integer():
+            result = int(result)
+    return True, str(result)
 
 
 class SourceBudget:
@@ -131,7 +198,15 @@ class ToolRunner:
         if name == "yada_scrape_many":
             return name, await self._yada_scrape_many(args)
 
+        if name == "calculator":
+            return name, self._calculator(args)
+
         return name, {"ok": False, "error": f"Unknown tool: {name}"}
+
+    def _calculator(self, args: dict) -> dict:
+        expression = str(args.get("expression") or "")
+        ok, result = safe_calculate(expression)
+        return {"ok": ok, "expression": expression.strip()[:200], "result": result, "error": "" if ok else result}
 
     async def _web_search(self, args: dict) -> dict:
         if not self._search_enabled:

@@ -21,6 +21,7 @@ Available tools:
 - web_search(query): finds source URLs.
 - yada_scrape(url): scrapes a page with the local YADA scraper and returns extracted content plus the YADA layer used.
 - yada_scrape_many(urls): scrapes 2 to 10 URLs in parallel with YADA and returns extracted content plus YADA layers.
+- calculator(expression): evaluates arithmetic exactly. Use it for any math on numbers taken from sources.
 
 Tool policy:
 {deep_note}- If the user provides multiple direct URLs, call yada_scrape_many on those URLs first. Do not call web_search unless the scraped content is insufficient.

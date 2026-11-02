@@ -1,6 +1,6 @@
 import pytest
 
-from kara.agent.tools import TOOL_SCHEMAS, SourceBudget, ToolRunner, urls_in_text
+from kara.agent.tools import TOOL_SCHEMAS, SourceBudget, ToolRunner, safe_calculate, urls_in_text
 
 from fakes import FakeYada
 
@@ -43,7 +43,7 @@ async def test_search_disabled_rejects_lookup():
 
 
 async def test_search_enabled_uses_search_web(monkeypatch):
-    async def fake_search(query, max_results=5, provider="ddgs", api_key=""):
+    async def fake_search(query, max_results=5, provider="ddgs", api_key="", freshness=""):
         return {"ok": True, "sources": [{"title": "T", "url": "https://a.dev"}], "error": ""}
 
     monkeypatch.setattr("kara.agent.tools.search_web", fake_search)
@@ -53,12 +53,38 @@ async def test_search_enabled_uses_search_web(monkeypatch):
 
 
 async def test_search_failure_is_reported_to_the_model(monkeypatch):
-    async def fake_search(query, max_results=5, provider="ddgs", api_key=""):
+    async def fake_search(query, max_results=5, provider="ddgs", api_key="", freshness=""):
         return {"ok": False, "sources": [], "error": "tavily_http_401"}
 
     monkeypatch.setattr("kara.agent.tools.search_web", fake_search)
     name, response = await ToolRunner(FakeYada()).execute("web_search", {"query": "rag"})
     assert response == {"ok": False, "error": "tavily_http_401", "sources": []}
+
+
+async def test_web_search_passes_freshness_through(monkeypatch):
+    seen = {}
+
+    async def fake_search(query, max_results=5, provider="ddgs", api_key="", freshness=""):
+        seen["freshness"] = freshness
+        return {"ok": True, "sources": [], "error": ""}
+
+    monkeypatch.setattr("kara.agent.tools.search_web", fake_search)
+    await ToolRunner(FakeYada()).execute(
+        "web_search", {"query": "ignou last date", "freshness": "week"}
+    )
+    assert seen["freshness"] == "week"
+
+
+async def test_web_search_passes_raw_freshness_for_search_layer_to_normalize(monkeypatch):
+    seen = {}
+
+    async def fake_search(query, max_results=5, provider="ddgs", api_key="", freshness=""):
+        seen["freshness"] = freshness
+        return {"ok": True, "sources": [], "error": ""}
+
+    monkeypatch.setattr("kara.agent.tools.search_web", fake_search)
+    await ToolRunner(FakeYada()).execute("web_search", {"query": "x", "freshness": "decade"})
+    assert seen["freshness"] == "decade"
 
 
 def test_urls_in_text_dedupes_domains():
@@ -158,3 +184,65 @@ def test_objective_parameter_is_removed_everywhere():
     for schema in TOOL_SCHEMAS:
         assert "objective" not in schema["parameters"]["properties"]
     assert "objective" not in build_system_prompt(max_sources=50)
+
+
+def test_calculator_schema_is_registered():
+    names = [schema["name"] for schema in TOOL_SCHEMAS]
+    assert "calculator" in names
+
+
+def test_calculator_evaluates_arithmetic():
+    assert safe_calculate("2 + 2") == (True, "4")
+    assert safe_calculate("10 / 4") == (True, "2.5")
+    assert safe_calculate("2 ** 10") == (True, "1024")
+    assert safe_calculate("(1 + 2) * (3 + 4)") == (True, "21")
+    assert safe_calculate("7 // 2") == (True, "3")
+    assert safe_calculate("10 % 3") == (True, "1")
+    assert safe_calculate("-5 + 3") == (True, "-2")
+
+
+def test_calculator_rounds_floats():
+    ok, result = safe_calculate("0.1 + 0.2")
+    assert ok is True
+    assert result == "0.3"
+
+
+async def test_calculator_tool_returns_ok_payload():
+    name, response = await ToolRunner(FakeYada()).execute("calculator", {"expression": "2 ** 10"})
+    assert name == "calculator"
+    assert response["ok"] is True
+    assert response["result"] == "1024"
+
+
+async def test_calculator_division_by_zero_is_friendly():
+    name, response = await ToolRunner(FakeYada()).execute("calculator", {"expression": "1 / 0"})
+    assert response["ok"] is False
+    assert response["error"] == "Division by zero"
+
+
+def test_calculator_rejects_code_injection():
+    for bad in (
+        "__import__('os')",
+        "open('/etc/passwd')",
+        "eval('1')",
+        "().__class__",
+        "[1,2]",
+        "'string'",
+        "1 if True else 2",
+    ):
+        ok, result = safe_calculate(bad)
+        assert ok is False, bad
+        assert result != ""
+
+
+def test_calculator_rejects_empty_and_overlong():
+    assert safe_calculate("") == (False, "Empty expression")
+    assert safe_calculate("   ") == (False, "Empty expression")
+    ok, result = safe_calculate("1+" * 200)
+    assert ok is False
+    assert "too long" in result.lower()
+
+
+def test_calculator_rejects_non_arithmetic_words():
+    ok, result = safe_calculate("five plus three")
+    assert ok is False
