@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 
 from openai import (
     APIConnectionError,
@@ -18,6 +19,8 @@ from kara.llm.base import (
     ToolCall,
     parse_tool_arguments,
 )
+
+logger = logging.getLogger("kara.llm")
 
 
 def openai_messages(messages: list[dict]) -> list[dict]:
@@ -97,7 +100,8 @@ def map_openai_error(name: str, exc: Exception) -> LLMError:
         return LLMError(f"{name}: HTTP {exc.status_code}", status_code=exc.status_code)
     if isinstance(exc, (APIConnectionError, APITimeoutError)):
         return LLMError(f"{name}: network error: {exc}", retriable=True)
-    return LLMError(f"{name}: request failed")
+    logger.warning("llm %s unexpected %s: %s", name, type(exc).__name__, exc)
+    return LLMError(f"{name}: {exc}")
 
 
 class OpenAICompatibleProvider(LLMProvider):

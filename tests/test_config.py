@@ -32,6 +32,15 @@ def test_llm_ready_requires_a_chain_key():
     assert Settings().llm_ready is False
 
 
+def test_inferx_model_defaults_to_the_free_variant():
+    assert Settings().inferx_model == "deepseek-v4.1-flash-1017-basic"
+
+
+def test_llm_ready_accepts_inferx_key():
+    assert Settings(llm_chain=("inferx",), inferx_api_key="ix_test").llm_ready is True
+    assert Settings(llm_chain=("inferx",)).llm_ready is False
+
+
 def test_yada_ready_modes():
     assert Settings(yada_mode="off").yada_ready is False
     assert Settings(yada_mode="http", yada_api_url="http://yada:8000").yada_ready is True

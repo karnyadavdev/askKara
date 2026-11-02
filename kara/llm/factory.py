@@ -69,6 +69,7 @@ def build_provider(settings: Settings) -> ResilientProvider:
         "openrouter": (settings.openrouter_api_key, settings.openrouter_model, "https://openrouter.ai/api/v1"),
         "mistral": (settings.mistral_api_key, settings.mistral_model, "https://api.mistral.ai/v1"),
         "nim": (settings.nim_api_key, settings.nim_model, "https://integrate.api.nvidia.com/v1"),
+        "inferx": (settings.inferx_api_key, settings.inferx_model, "https://model.inferx.net/endpoints/v1"),
     }
 
     providers: list[LLMProvider] = []
@@ -81,6 +82,18 @@ def build_provider(settings: Settings) -> ResilientProvider:
             continue
         if name == "nim":
             providers.append(NIMProvider(api_key, model, settings.llm_timeout))
+        elif name == "inferx":
+            providers.append(
+                OpenAICompatibleProvider(
+                    "inferx",
+                    api_key,
+                    model,
+                    base_url,
+                    settings.llm_timeout,
+                    max_retries=8,
+                    backoff_base=1.0,
+                )
+            )
         else:
             providers.append(OpenAICompatibleProvider(name, api_key, model, base_url, settings.llm_timeout))
 

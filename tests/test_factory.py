@@ -63,3 +63,35 @@ async def test_build_provider_skips_missing_keys():
 async def test_build_provider_without_keys_raises():
     with pytest.raises(LLMError):
         build_provider(Settings())
+
+
+async def test_build_provider_builds_inferx_from_chain():
+    settings = Settings(llm_chain=("inferx",), inferx_api_key="ix_test")
+
+    provider = build_provider(settings)
+
+    assert provider.chain == ["inferx"]
+
+
+def test_map_openai_error_429_is_retriable():
+    import httpx
+    from openai import APIStatusError
+
+    from kara.llm.providers import map_openai_error
+
+    request = httpx.Request("POST", "https://model.inferx.net/endpoints/v1/chat/completions")
+    response = httpx.Response(429, request=request)
+    exc = APIStatusError("rate limited", response=response, body=None)
+
+    error = map_openai_error("inferx", exc)
+
+    assert error.retriable is True
+    assert "429" in str(error)
+
+
+def test_map_openai_error_keeps_unexpected_message():
+    from kara.llm.providers import map_openai_error
+
+    error = map_openai_error("inferx", RuntimeError("Service temporarily overloaded"))
+
+    assert "Service temporarily overloaded" in str(error)

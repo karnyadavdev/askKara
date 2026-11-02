@@ -35,6 +35,8 @@ class Settings:
     mistral_model: str = "ministral-14b-latest"
     nim_api_key: str = ""
     nim_model: str = "nvidia/nemotron-3-ultra-550b-a55b"
+    inferx_api_key: str = ""
+    inferx_model: str = "deepseek-v4.1-flash-1017-basic"
     llm_timeout: float = 300.0
 
     yada_mode: str = "import"
@@ -72,6 +74,7 @@ class Settings:
             "openrouter": self.openrouter_api_key,
             "mistral": self.mistral_api_key,
             "nim": self.nim_api_key,
+            "inferx": self.inferx_api_key,
         }
         return any(keys.get(name, "").strip() for name in self.llm_chain)
 
@@ -110,6 +113,8 @@ def get_settings() -> Settings:
         mistral_model=os.getenv("MISTRAL_MODEL", "ministral-14b-latest").strip(),
         nim_api_key=os.getenv("NIM_API_KEY", "").strip(),
         nim_model=os.getenv("NIM_MODEL", "nvidia/nemotron-3-ultra-550b-a55b").strip(),
+        inferx_api_key=os.getenv("INFERX_API_KEY", "").strip(),
+        inferx_model=os.getenv("INFERX_MODEL", "deepseek-v4.1-flash-1017-basic").strip(),
         llm_timeout=float(os.getenv("KARA_LLM_TIMEOUT", "300")),
         yada_mode=os.getenv("YADA_MODE", "import").strip().lower(),
         yada_root=os.getenv("YADA_ROOT", "").strip(),
