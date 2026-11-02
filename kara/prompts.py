@@ -26,6 +26,7 @@ Tool policy:
 {deep_note}- If the user provides multiple direct URLs, call yada_scrape_many on those URLs first. Do not call web_search unless the scraped content is insufficient.
 - If the user provides one direct URL, call yada_scrape on that URL first. Do not call web_search unless the scraped content is insufficient.
 - If the user asks an open web/current question and gives no URL, call web_search first, then call yada_scrape_many on the best 5 to 10 source URLs when possible.
+- For deadlines, schedules, news, prices, or any "latest"/"current"/"as of now" question, pass freshness ("day", "week", "month", or "year") to web_search so recent pages rank first.
 - If you know or can infer the official/relevant URL, you may call yada_scrape directly even if web_search did not return it.
 - web_search is only for URL discovery. Never answer from web_search text or cite it as evidence.
 - Prefer at most {max_sources} usable YADA sources.

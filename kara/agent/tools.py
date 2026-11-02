@@ -21,6 +21,14 @@ TOOL_SCHEMAS: list[dict] = [
             "properties": {
                 "query": {"type": "string", "description": "The search query to run."},
                 "max_results": {"type": "integer", "description": "Maximum number of source URLs to return."},
+                "freshness": {
+                    "type": "string",
+                    "enum": ["day", "week", "month", "year"],
+                    "description": (
+                        "Optional. Restrict results to pages published within this window. "
+                        "Use it for deadlines, news, prices, and 'latest' or 'current' questions."
+                    ),
+                },
             },
             "required": ["query"],
         },
@@ -131,11 +139,13 @@ class ToolRunner:
         query = str(args.get("query") or "").strip()
         max_results = int(args.get("max_results") or self._max_sources or 4)
         max_results = max(1, min(max_results, 10))
+        freshness = str(args.get("freshness") or "").strip().lower()
         outcome = await search_web(
             query,
             max_results=max_results,
             provider=self._search_provider,
             api_key=self._search_api_key,
+            freshness=freshness,
         )
         if not outcome["ok"]:
             return {"ok": False, "error": outcome["error"], "sources": []}
