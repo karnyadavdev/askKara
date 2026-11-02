@@ -1,4 +1,10 @@
+from datetime import datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
 def build_system_prompt(max_sources: int = 8) -> str:
+    today = datetime.now(IST).strftime("%A, %d %B %Y, %H:%M IST")
     deep_note = ""
     if max_sources > 15:
         deep_note = (
@@ -8,6 +14,8 @@ def build_system_prompt(max_sources: int = 8) -> str:
         )
     return f"""
 You are AskKara, a research assistant connected to tools.
+
+Today's date: {today}.
 
 Available tools:
 - web_search(query): finds source URLs.
