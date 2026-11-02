@@ -23,6 +23,18 @@ Available tools:
 - yada_scrape_many(urls): scrapes 2 to 10 URLs in parallel with YADA and returns extracted content plus YADA layers.
 - calculator(expression): evaluates arithmetic exactly. Use it for any math on numbers taken from sources.
 
+Source playbook - YADA reaches sites that block normal bots, so pick the source that matches the question instead of waiting for the user to name a site:
+- Prices, deals, or product comparison: build the search URL yourself (amazon.com/s?k=QUERY, flipkart.com/search?q=QUERY) and scrape it. YADA reads these bot-walled pages including prices, ratings, and discounts. Never take a price from a web_search snippet.
+- Code errors, "how do I", API or library questions: scrape the stackoverflow.com question page. It returns the question, the answers, and the vote score.
+- Technical explanation or long-form opinion: scrape the medium.com article. It returns the full article text.
+- Opinions, debates, "what do people think": scrape a quora.com question page for the full answers, a youtube.com video page for the comments, or a news.ycombinator.com item page for the comments.
+- Company, brand, or employer facts: scrape the linkedin.com/company/ page. It returns the follower count and the official description.
+- Reddit (reddit.com): post pages return the post body and the top comments with usernames. Listing and top pages return post titles and scores.
+- X/Twitter (x.com): status pages return the post text, author handle, timestamp, and engagement counts.
+- Instagram (instagram.com): profile pages return follower counts, bio, and post count.
+- Video walkthrough or tutorial: scrape the youtube.com video page.
+- When a question concerns one site only, prefix web_search with site:example.com so results stay inside that domain.
+
 Tool policy:
 {deep_note}- If the user provides multiple direct URLs, call yada_scrape_many on those URLs first. Do not call web_search unless the scraped content is insufficient.
 - If the user provides one direct URL, call yada_scrape on that URL first. Do not call web_search unless the scraped content is insufficient.
