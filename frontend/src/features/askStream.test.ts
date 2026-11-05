@@ -49,6 +49,7 @@ type MockedResponse = {
   status?: number
   headers?: Record<string, string>
   chunks: Chunk[]
+  failWith?: Error
 }
 
 function mockResponses(items: MockedResponse[]) {
@@ -75,6 +76,7 @@ function mockResponses(items: MockedResponse[]) {
                 return {
                   read(): Promise<Chunk> {
                     if (chunkIndex < item.chunks.length) return Promise.resolve(item.chunks[chunkIndex++])
+                    if (item.failWith) return Promise.reject(item.failWith)
                     return new Promise((_resolve, reject) => {
                       if (signal?.aborted) reject(abortError())
                       else signal?.addEventListener('abort', () => reject(abortError()), { once: true })
@@ -96,16 +98,70 @@ describe('ask stream', () => {
     store.dispatch(reset())
   })
 
-  it('fails with stream_ended when the body ends without a terminal event', async () => {
-    mockStream([
-      chunk('{"type":"conversation","id":7}\n{"type":"stage","message":"Working..."}\n'),
-      { done: true },
+  it('reconnects once on a dropped stream then fails with stream_ended', async () => {
+    const calls = mockResponses([
+      {
+        chunks: [
+          chunk('{"type":"conversation","id":7}\n{"type":"stage","message":"Working..."}\n'),
+          { done: true },
+        ],
+      },
+      {
+        chunks: [
+          chunk('{"type":"conversation","id":7}\n{"type":"stage","message":"Working..."}\n'),
+          { done: true },
+        ],
+      },
     ])
 
     await store.dispatch(ask('what is 2+2?'))
 
     expect(store.getState().stream.status).toBe('error')
     expect(store.getState().stream.error).toBe('stream_ended')
+    expect(calls).toHaveLength(2)
+  })
+
+  it('reconnects once after a network error and completes', async () => {
+    const calls = mockResponses([
+      {
+        chunks: [chunk('{"type":"conversation","id":5}\n{"type":"stage","message":"Researching..."}\n')],
+        failWith: new TypeError('Failed to fetch'),
+      },
+      {
+        chunks: [
+          chunk('{"type":"conversation","id":5}\n{"type":"done","answer":"recovered","sources":[]}\n'),
+          { done: true },
+        ],
+      },
+    ])
+
+    await store.dispatch(ask('q'))
+
+    const state = store.getState().stream
+    expect(state.status).toBe('done')
+    expect(state.answer).toBe('recovered')
+    expect(calls).toHaveLength(2)
+  })
+
+  it('reconnects once when the stream stalls', async () => {
+    vi.useFakeTimers()
+    try {
+      const calls = mockResponses([
+        { chunks: [chunk('{"type":"conversation","id":2}\n')] },
+        { chunks: [chunk('{"type":"conversation","id":2}\n')] },
+      ])
+
+      const pending = store.dispatch(ask('q'))
+      await vi.advanceTimersByTimeAsync(120_000)
+      await vi.advanceTimersByTimeAsync(120_000)
+      await pending
+
+      expect(store.getState().stream.status).toBe('error')
+      expect(store.getState().stream.error).toBe('stream_stalled')
+      expect(calls).toHaveLength(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('completes normally when done arrives', async () => {

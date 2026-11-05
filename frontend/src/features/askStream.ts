@@ -5,7 +5,9 @@ import type { Source } from './historyApi'
 import type { AppDispatch, RootState } from '../app/store'
 
 const STALL_MS = 120_000
-const MAX_ATTEMPTS = 2
+const MAX_PROVIDER_RETRIES = 1
+const MAX_RECONNECTS = 1
+const MAX_ATTEMPTS = 1 + MAX_PROVIDER_RETRIES + MAX_RECONNECTS
 
 let activeController: AbortController | null = null
 
@@ -32,21 +34,25 @@ class StreamError extends Error {
 export function ask(question: string, conversationId: number | null = null, maxSources = 8) {
   return async (dispatch: AppDispatch, getState: () => RootState) => {
     abortAsk()
-    const ctrl = new AbortController()
-    activeController = ctrl
 
     const authToken = getState().auth.token
     const deep = getState().stream.deep
+    let ctrl = new AbortController()
     let targetConversation = conversationId
+    let providerRetries = 0
+    let reconnects = 0
 
     try {
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+        ctrl = new AbortController()
+        activeController = ctrl
         dispatch(start(question))
         let sawTerminal = false
+        let stalled = false
 
         let stallTimer = 0
         const onStall = () => {
-          dispatch(fail('stream_stalled'))
+          stalled = true
           ctrl.abort()
         }
         const bumpStall = () => {
@@ -132,10 +138,30 @@ export function ask(question: string, conversationId: number | null = null, maxS
 
           if (!sawTerminal) throw new StreamError('stream_ended', false)
         } catch (err) {
-          if (isAbort(err)) return
-          const streamedSomething = getState().stream.answer !== '' || getState().stream.steps.length > 0
+          if (isAbort(err)) {
+            if (!stalled) return
+            if (reconnects < MAX_RECONNECTS) {
+              reconnects += 1
+              continue
+            }
+            dispatch(fail('stream_stalled'))
+            return
+          }
+
           const streamErr = err instanceof StreamError ? err : null
-          if (streamErr?.retryable && attempt < MAX_ATTEMPTS && !streamedSomething) {
+          const connectionDeath = streamErr?.message === 'stream_ended' || err instanceof TypeError
+          if (connectionDeath) {
+            if (reconnects < MAX_RECONNECTS) {
+              reconnects += 1
+              continue
+            }
+            dispatch(fail('stream_ended'))
+            return
+          }
+
+          const streamedSomething = getState().stream.answer !== '' || getState().stream.steps.length > 0
+          if (streamErr?.retryable && providerRetries < MAX_PROVIDER_RETRIES && !streamedSomething) {
+            providerRetries += 1
             continue
           }
           dispatch(fail(err instanceof Error ? err.message : String(err)))
