@@ -6,10 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kara.config import Settings, get_settings
 from kara.db import get_session
-from kara.deps import client_ip, get_current_user
+from kara.deps import client_ip, get_current_user, user_from_token
 from kara.limiter import SlidingWindowLimiter
 from kara.models import User
-from kara.schemas import LoginIn, RegisterIn, TokenOut, UserOut
+from kara.schemas import LoginIn, RegisterIn, TokenIn, TokenOut, UserOut
 from kara.security import create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -79,4 +79,14 @@ async def login(
 async def me(user: User | None = Depends(get_current_user)) -> UserOut:
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return UserOut(id=user.id, email=user.email)
+
+
+@router.post("/me", response_model=UserOut)
+async def me_from_body(
+    payload: TokenIn,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> UserOut:
+    user = await user_from_token(payload.token, session, settings)
     return UserOut(id=user.id, email=user.email)

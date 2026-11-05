@@ -72,6 +72,20 @@ async def test_me_without_token_is_401(client):
     assert resp.status_code == 401
 
 
+async def test_me_accepts_token_in_body(client):
+    resp = await client.post("/api/auth/register", json=VALID)
+    token = resp.json()["access_token"]
+
+    me = await client.post("/api/auth/me", json={"token": token})
+    assert me.status_code == 200
+    assert me.json()["email"] == VALID["email"]
+
+
+async def test_me_rejects_garbage_token_in_body(client):
+    me = await client.post("/api/auth/me", json={"token": "not-a-jwt"})
+    assert me.status_code == 401
+
+
 async def test_strict_mode_blocks_anonymous_ask(strict_client):
     resp = await strict_client.post("/api/ask/stream", json={"question": "hello", "max_sources": 5})
     assert resp.status_code == 401
@@ -85,6 +99,17 @@ async def test_strict_mode_allows_authed_ask(strict_client):
         "/api/ask/stream",
         json={"question": "What is 2+2?", "max_sources": 5},
         headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+
+
+async def test_strict_mode_allows_body_token_ask(strict_client):
+    register = await strict_client.post("/api/auth/register", json=VALID)
+    token = register.json()["access_token"]
+
+    resp = await strict_client.post(
+        "/api/ask/stream",
+        json={"question": "What is 2+2?", "max_sources": 5, "token": token},
     )
     assert resp.status_code == 200
 

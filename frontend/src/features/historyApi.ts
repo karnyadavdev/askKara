@@ -37,12 +37,12 @@ export const historyApi = createApi({
   baseQuery,
   tagTypes: ['History'],
   endpoints: (builder) => ({
-    getConversations: builder.query<{ items: ConversationItem[] }, void>({
-      query: () => '/conversations',
+    getConversations: builder.query<{ items: ConversationItem[] }, string>({
+      query: (token) => ({ url: '/conversations', method: 'POST', body: { token } }),
       providesTags: ['History'],
     }),
-    getConversation: builder.query<{ items: TurnItem[] }, number>({
-      query: (id) => `/conversations/${id}`,
+    getConversation: builder.query<{ items: TurnItem[] }, { id: number; token: string }>({
+      query: ({ id, token }) => ({ url: `/conversations/${id}`, method: 'POST', body: { token } }),
       providesTags: ['History'],
     }),
   }),

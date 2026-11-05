@@ -92,6 +92,50 @@ async def test_other_users_chat_is_404(client):
     assert followup.status_code == 404
 
 
+async def test_conversations_accept_body_token(client):
+    register = await client.post("/api/auth/register", json=VALID)
+    token = register.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = await ask(client, "body token question", headers=headers)
+    conv_id = parse_ndjson(resp.text)[0]["id"]
+
+    listing = await client.post("/api/conversations", json={"token": token})
+    assert listing.status_code == 200
+    assert [item["id"] for item in listing.json()["items"]] == [conv_id]
+
+    turns = await client.post(f"/api/conversations/{conv_id}", json={"token": token})
+    assert turns.status_code == 200
+    assert turns.json()["items"][0]["question"] == "body token question"
+
+
+async def test_conversations_reject_garbage_body_token(client):
+    listing = await client.post("/api/conversations", json={"token": "not-a-jwt"})
+    assert listing.status_code == 401
+
+
+async def test_ask_accepts_body_token(client):
+    register = await client.post("/api/auth/register", json=VALID)
+    token = register.json()["access_token"]
+
+    resp = await client.post(
+        "/api/ask/stream",
+        json={"question": "body token ask", "max_sources": 5, "token": token},
+    )
+    assert resp.status_code == 200
+
+    from sqlalchemy import select
+
+    from kara.db import get_session_factory
+    from kara.models import QueryRecord, User
+
+    factory = get_session_factory()
+    async with factory() as session:
+        user = (await session.execute(select(User).where(User.email == VALID["email"]))).scalar_one()
+        record = (await session.execute(select(QueryRecord).where(QueryRecord.user_id == user.id))).scalar_one()
+    assert record.question == "body token ask"
+
+
 async def test_unknown_conversation_id_is_404(client):
     resp = await ask(client, "hello", conversation_id=999999)
     assert resp.status_code == 404

@@ -38,8 +38,8 @@ export const authApi = createApi({
     login: builder.mutation<TokenOut, Credentials>({
       query: (body) => ({ url: '/login', method: 'POST', body }),
     }),
-    me: builder.query<UserOut, void>({
-      query: () => '/me',
+    me: builder.query<UserOut, string>({
+      query: (token) => ({ url: '/me', method: 'POST', body: { token } }),
       providesTags: ['AuthUser'],
     }),
   }),

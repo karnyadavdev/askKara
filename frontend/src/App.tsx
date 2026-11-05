@@ -90,8 +90,8 @@ export default function App() {
     }
   }, [])
 
-  const { data: me, error: meError } = useMeQuery(undefined, { skip: !token })
-  const { data: conversations } = useGetConversationsQuery(undefined, { skip: !token })
+  const { data: me, error: meError } = useMeQuery(token, { skip: !token })
+  const { data: conversations } = useGetConversationsQuery(token, { skip: !token })
   const [fetchConversation] = useLazyGetConversationQuery()
 
   const running = stream.status === 'running'
@@ -184,7 +184,7 @@ export default function App() {
     const gen = archiveGen.current
     setLiveItem(null)
     dispatch(reset())
-    fetchConversation(numericId)
+    fetchConversation({ id: numericId, token })
       .unwrap()
       .then((data) => {
         if (gen !== archiveGen.current) return

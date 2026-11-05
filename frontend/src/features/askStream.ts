@@ -96,6 +96,7 @@ export function ask(question: string, conversationId: number | null = null, maxS
               max_sources: deep ? 50 : maxSources,
               deep,
               ...(targetConversation ? { conversation_id: targetConversation } : {}),
+              ...(authToken ? { token: authToken } : {}),
             }),
             signal: ctrl.signal,
           })

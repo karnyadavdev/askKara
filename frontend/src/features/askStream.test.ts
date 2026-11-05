@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ask, abortAsk } from './askStream'
+import { setToken } from './authSlice'
 import { reset } from './streamSlice'
 import { store } from '../app/store'
 
@@ -206,6 +207,18 @@ describe('ask stream', () => {
     expect(store.getState().stream.status).toBe('running')
     expect(store.getState().stream.error).toBe('')
     store.dispatch(reset())
+  })
+
+  it('sends the auth token in the stream request body', async () => {
+    const calls = mockResponses([
+      { chunks: [chunk('{"type":"done","answer":"ok","sources":[]}\n'), { done: true }] },
+    ])
+    store.dispatch(setToken('tok-123'))
+
+    await store.dispatch(ask('q'))
+
+    expect(JSON.parse(String(calls[0].body))).toMatchObject({ question: 'q', token: 'tok-123' })
+    store.dispatch(setToken(''))
   })
 
   it('maps an app rate limit to rate_limited with the Retry-After seconds', async () => {

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kara.agent.loop import run_agent
 from kara.config import Settings, get_settings
 from kara.db import get_session
-from kara.deps import build_runner, client_ip, get_provider, get_yada, require_user
+from kara.deps import build_runner, client_ip, get_current_user, get_provider, get_yada, user_from_token
 from kara.limiter import SlidingWindowLimiter
 from kara.llm.base import LLMError, LLMProvider
 from kara.models import Conversation, QueryRecord, User, utcnow
@@ -49,13 +49,18 @@ async def ask_stream(
     settings: Settings = Depends(get_settings),
     provider: LLMProvider = Depends(get_provider),
     yada: YadaClient = Depends(get_yada),
-    user: User | None = Depends(require_user),
+    user: User | None = Depends(get_current_user),
 ):
     question = (payload.question or "").strip()
     if not question:
         raise HTTPException(status_code=422, detail="question is required")
     if len(question) > 4000:
         raise HTTPException(status_code=422, detail="question too long")
+
+    if payload.token and user is None:
+        user = await user_from_token(payload.token, session, settings)
+    if settings.auth_required and user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     limiter = _deep_limiter if payload.deep else _rate_limiter
     allowed, retry_after = limiter.check(client_ip(request))

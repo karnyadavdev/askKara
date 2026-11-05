@@ -29,8 +29,13 @@ class TokenOut(BaseModel):
     user: UserOut
 
 
+class TokenIn(BaseModel):
+    token: str = Field(min_length=1, max_length=4096)
+
+
 class AskRequest(BaseModel):
     question: str
     max_sources: int | None = None
     deep: bool = False
     conversation_id: int | None = None
+    token: str | None = Field(default=None, max_length=4096)

@@ -69,6 +69,17 @@ def get_runner(
     return build_runner(settings, yada)
 
 
+async def user_from_token(token: str, session: AsyncSession, settings: Settings) -> User:
+    try:
+        user_id = decode_access_token(token, settings.jwt_secret)
+    except TokenError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
+    return user
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     session: AsyncSession = Depends(get_session),
@@ -76,14 +87,7 @@ async def get_current_user(
 ) -> User | None:
     if credentials is None:
         return None
-    try:
-        user_id = decode_access_token(credentials.credentials, settings.jwt_secret)
-    except TokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
-    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user")
-    return user
+    return await user_from_token(credentials.credentials, session, settings)
 
 
 async def require_user(
