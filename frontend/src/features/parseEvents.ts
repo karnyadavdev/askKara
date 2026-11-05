@@ -5,6 +5,7 @@ export interface StreamEvent {
   answer?: string
   sources?: unknown
   id?: number
+  retryable?: boolean
 }
 
 // NDJSON lines can split across network chunks, so a chunk only yields the

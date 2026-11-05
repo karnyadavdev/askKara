@@ -43,6 +43,53 @@ function mockStream(chunks: Chunk[]) {
   )
 }
 
+type MockedCall = { body: unknown }
+
+type MockedResponse = {
+  status?: number
+  headers?: Record<string, string>
+  chunks: Chunk[]
+}
+
+function mockResponses(items: MockedResponse[]) {
+  const calls: MockedCall[] = []
+  let index = 0
+  let signal: AbortSignal | undefined
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((_input: unknown, init: RequestInit) => {
+      calls.push({ body: init.body })
+      signal = init.signal ?? undefined
+      const item = items[Math.min(index, items.length - 1)]
+      index += 1
+      const status = item.status ?? 200
+      const ok = status >= 200 && status < 300
+      let chunkIndex = 0
+      return {
+        ok,
+        status,
+        headers: { get: (name: string) => item.headers?.[name] ?? null },
+        body: ok
+          ? {
+              getReader() {
+                return {
+                  read(): Promise<Chunk> {
+                    if (chunkIndex < item.chunks.length) return Promise.resolve(item.chunks[chunkIndex++])
+                    return new Promise((_resolve, reject) => {
+                      if (signal?.aborted) reject(abortError())
+                      else signal?.addEventListener('abort', () => reject(abortError()), { once: true })
+                    })
+                  },
+                }
+              },
+            }
+          : null,
+      } as unknown as Response
+    }) as unknown as typeof fetch,
+  )
+  return calls
+}
+
 describe('ask stream', () => {
   beforeEach(() => {
     vi.unstubAllGlobals()
@@ -103,5 +150,96 @@ describe('ask stream', () => {
     expect(store.getState().stream.status).toBe('running')
     expect(store.getState().stream.error).toBe('')
     store.dispatch(reset())
+  })
+
+  it('maps an app rate limit to rate_limited with the Retry-After seconds', async () => {
+    const calls = mockResponses([{ status: 429, headers: { 'Retry-After': '47' }, chunks: [] }])
+
+    await store.dispatch(ask('q'))
+
+    expect(store.getState().stream.status).toBe('error')
+    expect(store.getState().stream.error).toBe('rate_limited:47')
+    expect(calls).toHaveLength(1)
+  })
+
+  it('retries once on a retryable error and reuses the same conversation', async () => {
+    const calls = mockResponses([
+      {
+        chunks: [
+          chunk('{"type":"conversation","id":7}\n{"type":"error","message":"provider_rate_limited","retryable":true}\n'),
+          { done: true },
+        ],
+      },
+      {
+        chunks: [
+          chunk('{"type":"conversation","id":7}\n{"type":"done","answer":"recovered","sources":[]}\n'),
+          { done: true },
+        ],
+      },
+    ])
+
+    await store.dispatch(ask('q'))
+
+    const state = store.getState().stream
+    expect(state.status).toBe('done')
+    expect(state.answer).toBe('recovered')
+    expect(state.conversationId).toBe(7)
+    expect(calls).toHaveLength(2)
+    expect(JSON.parse(String(calls[1].body))).toMatchObject({ question: 'q', conversation_id: 7 })
+  })
+
+  it('fails with the provider code when both attempts hit a retryable error', async () => {
+    const calls = mockResponses([
+      {
+        chunks: [
+          chunk('{"type":"conversation","id":3}\n{"type":"error","message":"provider_rate_limited","retryable":true}\n'),
+          { done: true },
+        ],
+      },
+      {
+        chunks: [
+          chunk('{"type":"conversation","id":3}\n{"type":"error","message":"provider_rate_limited","retryable":true}\n'),
+          { done: true },
+        ],
+      },
+    ])
+
+    await store.dispatch(ask('q'))
+
+    expect(store.getState().stream.status).toBe('error')
+    expect(store.getState().stream.error).toBe('provider_rate_limited')
+    expect(calls).toHaveLength(2)
+  })
+
+  it('does not retry a non-retryable error', async () => {
+    const calls = mockResponses([
+      { chunks: [chunk('{"type":"error","message":"Internal research error","retryable":false}\n'), { done: true }] },
+    ])
+
+    await store.dispatch(ask('q'))
+
+    expect(store.getState().stream.error).toBe('Internal research error')
+    expect(calls).toHaveLength(1)
+  })
+
+  it('does not retry once answer tokens have streamed', async () => {
+    const calls = mockResponses([
+      {
+        chunks: [
+          chunk(
+            '{"type":"conversation","id":4}\n{"type":"token","text":"partial "}\n{"type":"error","message":"provider_rate_limited","retryable":true}\n',
+          ),
+          { done: true },
+        ],
+      },
+      { chunks: [chunk('{"type":"done","answer":"recovered","sources":[]}\n'), { done: true }] },
+    ])
+
+    await store.dispatch(ask('q'))
+
+    expect(store.getState().stream.status).toBe('error')
+    expect(store.getState().stream.error).toBe('provider_rate_limited')
+    expect(store.getState().stream.answer).toBe('partial ')
+    expect(calls).toHaveLength(1)
   })
 })

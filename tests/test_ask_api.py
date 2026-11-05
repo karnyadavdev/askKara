@@ -99,7 +99,7 @@ async def test_provider_rate_limit_emits_error_event(client):
     assert resp.status_code == 200
     events = parse_ndjson(resp.text)
     assert events[-1]["type"] == "error"
-    assert events[-1]["message"] == "rate_limited"
+    assert events[-1]["message"] == "provider_rate_limited"
 
 
 async def test_provider_auth_failure_emits_error_event(client):

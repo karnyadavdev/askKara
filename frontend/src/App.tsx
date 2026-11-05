@@ -23,13 +23,19 @@ function nextBlockId() {
 
 function streamErrorMessage(error: string) {
   if (error === 'auth_required') return 'Sign in to ask questions.'
-  if (error === 'rate_limited') return 'The research service is temporarily rate-limited. Try again in a few minutes.'
   if (error === 'question_invalid') return 'That question was too long or empty.'
+  if (error === 'provider_rate_limited') return 'The AI provider is busy. Try again in a few seconds.'
+  if (error.startsWith('rate_limited')) {
+    const seconds = Number(error.slice('rate_limited'.length + 1))
+    if (Number.isFinite(seconds) && seconds > 0) return `You're asking too fast. Try again in ${seconds} seconds.`
+    return 'You are asking too fast. Try again in a minute.'
+  }
   if (error === 'backend_status_404') return 'That chat no longer exists. Start a new chat.'
   if (error === 'stream_ended') return 'The connection dropped before the answer finished. Ask again.'
   if (error === 'stream_stalled') return 'The connection stalled. Ask again.'
   if (error === 'save_failed') return 'The answer finished but could not be saved to your history.'
-  return `I could not reach the local AskKara backend. (${error})`
+  console.error('askkara stream error:', error)
+  return 'Something went wrong while researching. Please try again.'
 }
 
 export default function App() {

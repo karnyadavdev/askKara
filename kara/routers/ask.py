@@ -138,7 +138,7 @@ async def ask_stream(
                     except LLMError as exc:
                         logger.warning("ask stream llm error: %s", exc)
                         if exc.status_code == 429:
-                            yield _line({"type": "error", "message": "rate_limited", "retryable": True})
+                            yield _line({"type": "error", "message": "provider_rate_limited", "retryable": True})
                         else:
                             yield _line({"type": "error", "message": str(exc)[:300], "retryable": bool(exc.retriable)})
                         return
