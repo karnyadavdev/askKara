@@ -1,6 +1,12 @@
 __pycache__/
+__pycache__ (1)/
 *.pyc
 *.log
 .env
+.env.*
+!.env.example
 kara.db
+kara.db-shm
+kara.db-wal
 .pytest_cache/
+.venv/

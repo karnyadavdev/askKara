@@ -1,4 +1,3 @@
-import pytest
 
 from kara.agent.tools import TOOL_SCHEMAS, SourceBudget, ToolRunner, safe_calculate, urls_in_text
 
