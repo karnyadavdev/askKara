@@ -20,3 +20,44 @@ describe('renderAnswerMarkdown', () => {
     expect(renderAnswerMarkdown('')).toContain('No answer returned')
   })
 })
+
+describe('renderAnswerMarkdown tables, links and code', () => {
+  it('renders a gfm table with header and body cells', () => {
+    const html = renderAnswerMarkdown('| Name | Posts |\n| --- | ---: |\n| Elon | 111.6K |\n| Flying Beast | 3M |')
+
+    expect(html).toContain('<div class="answer-table"><table>')
+    expect(html).toContain('<th>Name</th>')
+    expect(html).toContain('<td>Elon</td>')
+    expect(html).toContain('<td>3M</td>')
+  })
+
+  it('renders citations inside table cells', () => {
+    const html = renderAnswerMarkdown('| Claim | Source |\n| --- | --- |\n| grew fast [1] | wiki [2] |')
+
+    expect(html).toContain('cite-num')
+    expect(html).toContain('[1]')
+  })
+
+  it('renders safe links and drops unsafe schemes', () => {
+    const html = renderAnswerMarkdown('[docs](https://example.com) and [bad](javascript:alert(1))')
+
+    expect(html).toContain('<a href="https://example.com" target="_blank" rel="noopener noreferrer">docs</a>')
+    expect(html).not.toContain('javascript:')
+    expect(html).toContain('bad')
+  })
+
+  it('renders fenced code blocks escaped with a language class', () => {
+    const html = renderAnswerMarkdown('```python\nprint("<hi>")\n```')
+
+    expect(html).toContain('<pre class="answer-code"><code class="language-python">')
+    expect(html).toContain('print("&lt;hi&gt;")')
+    expect(html).not.toContain('<hi>')
+  })
+
+  it('renders inline code before bold and links', () => {
+    const html = renderAnswerMarkdown('use `**not bold**` and **bold**')
+
+    expect(html).toContain('<code>**not bold**</code>')
+    expect(html).toContain('<strong>bold</strong>')
+  })
+})

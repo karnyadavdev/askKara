@@ -16,15 +16,22 @@ export default function TypeAnswer({ text }: Props) {
 
     const source = document.createElement('div')
     source.innerHTML = renderAnswerMarkdown(text)
-    const paragraphs = Array.from(source.querySelectorAll('p'))
+    const blocks = Array.from(source.children)
 
-    let paragraphIndex = 0
+    let blockIndex = 0
     let cancelled = false
     let timer: number | undefined
 
-    function nextParagraph() {
-      if (cancelled || paragraphIndex >= paragraphs.length) return
-      const full = paragraphs[paragraphIndex].innerHTML
+    function nextBlock() {
+      if (cancelled || blockIndex >= blocks.length) return
+      const block = blocks[blockIndex]
+      if (block.tagName !== 'P') {
+        host?.appendChild(block.cloneNode(true))
+        blockIndex += 1
+        timer = window.setTimeout(nextBlock, 40)
+        return
+      }
+      const full = block.innerHTML
       const p = document.createElement('p')
       const cursor = document.createElement('span')
       cursor.className = 'answer-typing-cursor'
@@ -35,8 +42,8 @@ export default function TypeAnswer({ text }: Props) {
         if (cancelled) return
         if (charIndex >= full.length) {
           p.innerHTML = full
-          paragraphIndex++
-          timer = window.setTimeout(nextParagraph, 80)
+          blockIndex += 1
+          timer = window.setTimeout(nextBlock, 80)
           return
         }
         if (full[charIndex] === '<') {
@@ -54,7 +61,7 @@ export default function TypeAnswer({ text }: Props) {
       nextChar()
     }
 
-    nextParagraph()
+    nextBlock()
     return () => {
       cancelled = true
       window.clearTimeout(timer)
