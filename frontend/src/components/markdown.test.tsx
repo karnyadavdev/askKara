@@ -61,3 +61,24 @@ describe('renderAnswerMarkdown tables, links and code', () => {
     expect(html).toContain('<strong>bold</strong>')
   })
 })
+
+describe('bare url linking', () => {
+  it('links a bare https url', () => {
+    const html = renderAnswerMarkdown('source: https://example.com/page')
+
+    expect(html).toContain('<a href="https://example.com/page" target="_blank" rel="noopener noreferrer">https://example.com/page</a>')
+  })
+
+  it('keeps trailing punctuation outside the link', () => {
+    const html = renderAnswerMarkdown('see https://example.com/page.')
+
+    expect(html).toContain('>https://example.com/page</a>.')
+  })
+
+  it('does not wrap a url that is already a markdown link', () => {
+    const html = renderAnswerMarkdown('[docs](https://example.com)')
+
+    expect(html.match(/<a /g)).toHaveLength(1)
+    expect(html).not.toContain('<a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>')
+  })
+})

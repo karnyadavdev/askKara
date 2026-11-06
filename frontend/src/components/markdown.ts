@@ -10,6 +10,27 @@ function safeUrl(url: string): string {
   return ''
 }
 
+function linkBareUrls(html: string): string {
+  return html.replace(/\bhttps?:\/\/[^\s<>"']+/g, (url: string) => {
+    let href = url
+    let trailing = ''
+    while (/[.,;:!?]$/.test(href)) {
+      trailing = href.slice(-1) + trailing
+      href = href.slice(0, -1)
+    }
+    while (href.endsWith(')')) {
+      const open = (href.match(/\(/g) ?? []).length
+      const close = (href.match(/\)/g) ?? []).length
+      if (close <= open) break
+      trailing = ')' + trailing
+      href = href.slice(0, -1)
+    }
+    const safe = safeUrl(href)
+    if (!safe) return url
+    return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${href}</a>${trailing}`
+  })
+}
+
 function formatInlineMarkdown(text: string): string {
   const codeSpans: string[] = []
   let out = escapeHtml(text).replace(/`([^`]+)`/g, (_match, code: string) => {
@@ -25,7 +46,11 @@ function formatInlineMarkdown(text: string): string {
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
   out = out.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
   out = out.replace(/\[(\d+)\]/g, '<span class="cite-num">[$1]</span>')
-  return out.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => `<code>${codeSpans[Number(index)]}</code>`)
+  const linked = out
+    .split(/(<a\b[^>]*>.*?<\/a>)/g)
+    .map((part) => (part.startsWith('<a ') ? part : linkBareUrls(part)))
+    .join('')
+  return linked.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => `<code>${codeSpans[Number(index)]}</code>`)
 }
 
 function splitTableRow(line: string): string[] {
