@@ -190,8 +190,8 @@ body {
 
 .menu-btn {
     background: transparent;
-    border: 1px solid var(--border-strong);
-    color: var(--text-dim);
+    border: 1px solid var(--green);
+    color: var(--text-main);
     padding: 4px 12px;
     font-size: 0.65rem;
     letter-spacing: 0.1em;
@@ -201,7 +201,7 @@ body {
 }
 
 .menu-btn:hover {
-    color: var(--text-main);
+    color: var(--green);
     border-color: var(--green);
 }
 
@@ -481,7 +481,7 @@ body {
     font-size: clamp(1.5rem, 3.5vw, 2.5rem);
     font-weight: 500;
     color: var(--green);
-    border-bottom: 2px solid var(--border-medium);
+    border-bottom: 2px solid var(--green);
     padding-bottom: 10px;
     padding-right: calc(clamp(1.5rem, 3.5vw, 2.5rem) + 8px);
     min-height: calc(clamp(1.5rem, 3.5vw, 2.5rem) + 20px);
@@ -777,7 +777,7 @@ body {
 .followup-line {
     max-width: 900px;
     margin: 0 auto;
-    border-bottom: 1px solid var(--border-strong);
+    border-bottom: 1px solid var(--green);
     position: relative;
     display: flex;
     align-items: center;
@@ -913,7 +913,7 @@ body {
 .auth-switch {
     background: none;
     border: none;
-    color: var(--text-dim);
+    color: var(--text-main);
     font-size: 0.75rem;
     cursor: pointer;
     font-family: var(--font-body);
@@ -926,6 +926,12 @@ body {
 .auth-error {
     color: #ff6b6b;
     font-size: 0.8rem;
+}
+
+.auth-hint {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    margin-top: -6px;
 }
 
 .auth-modal.profile {
@@ -1007,8 +1013,8 @@ body {
     display: inline-block;
     padding: 6px 14px;
     background: transparent;
-    border: 1px solid var(--border-strong);
-    color: var(--text-dim);
+    border: 1px solid var(--green);
+    color: var(--text-main);
     font-size: 0.68rem;
     letter-spacing: 0.18em;
     cursor: pointer;
@@ -1016,8 +1022,8 @@ body {
 }
 
 .deep-toggle:hover {
-    color: var(--input-text);
-    border-color: var(--text-dim);
+    color: var(--green);
+    border-color: var(--green);
 }
 
 .deep-toggle.active {
@@ -1093,8 +1099,8 @@ body {
     display: inline-block;
     padding: 6px 14px;
     background: transparent;
-    border: 1px solid var(--border-strong);
-    color: var(--text-dim);
+    border: 1px solid var(--green);
+    color: var(--text-main);
     font-size: 0.68rem;
     letter-spacing: 0.18em;
     cursor: pointer;
@@ -1102,8 +1108,8 @@ body {
 }
 
 .thinking-toggle:hover {
-    color: var(--input-text);
-    border-color: var(--text-dim);
+    color: var(--green);
+    border-color: var(--green);
 }
 
 .thinking-toggle.active {
