@@ -45,13 +45,16 @@ export default function FeedBlock({ item, stage, liveText, steps }: Props) {
         ) : (
           <TypeAnswer text={item.answer} />
         )
-      ) : liveText ? (
-        <>
-          <div className="answer-block live-tokens" dangerouslySetInnerHTML={{ __html: renderAnswerMarkdown(liveText) }} />
-          <span className="live-cursor" />
-        </>
       ) : (
-        <StageLine message={stage || item.stage || 'Researching...'} steps={steps} />
+        <>
+          <StageLine message={stage || item.stage || 'Researching...'} steps={steps} />
+          {liveText && liveText.trim() ? (
+            <>
+              <div className="answer-block live-tokens" dangerouslySetInnerHTML={{ __html: renderAnswerMarkdown(liveText) }} />
+              <span className="live-cursor" />
+            </>
+          ) : null}
+        </>
       )}
     </div>
   )
