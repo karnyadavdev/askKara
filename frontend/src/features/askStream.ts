@@ -37,6 +37,7 @@ export function ask(question: string, conversationId: number | null = null, maxS
 
     const authToken = getState().auth.token
     const deep = getState().stream.deep
+    const thinking = getState().stream.thinking
     let ctrl = new AbortController()
     let targetConversation = conversationId
     let providerRetries = 0
@@ -95,6 +96,7 @@ export function ask(question: string, conversationId: number | null = null, maxS
               question,
               max_sources: deep ? 50 : maxSources,
               deep,
+              thinking,
               ...(targetConversation ? { conversation_id: targetConversation } : {}),
               ...(authToken ? { token: authToken } : {}),
             }),

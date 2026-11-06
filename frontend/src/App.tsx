@@ -8,6 +8,7 @@ import { historyApi, useGetConversationsQuery, useLazyGetConversationQuery } fro
 import { goHome, reset } from './features/streamSlice'
 import AuthModal from './components/AuthModal'
 import DeepToggle from './components/DeepToggle'
+import ThinkingToggle from './components/ThinkingToggle'
 import FeedBlock from './components/FeedBlock'
 import type { FeedItem } from './components/FeedBlock'
 import HistorySidebar from './components/HistorySidebar'
@@ -277,6 +278,7 @@ export default function App() {
               <div className="followup-line">
                 <FollowupInput busy={running} onSubmit={startAsk} />
                 <DeepToggle />
+                <ThinkingToggle />
               </div>
             </div>
           </section>

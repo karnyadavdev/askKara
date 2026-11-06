@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ask, abortAsk } from './askStream'
 import { setToken } from './authSlice'
-import { reset } from './streamSlice'
+import { reset, toggleThinking } from './streamSlice'
 import { store } from '../app/store'
 
 const encoder = new TextEncoder()
@@ -310,5 +310,17 @@ describe('ask stream', () => {
     expect(store.getState().stream.error).toBe('provider_rate_limited')
     expect(store.getState().stream.answer).toBe('partial ')
     expect(calls).toHaveLength(1)
+  })
+
+  it('sends the selected thinking level in the request body', async () => {
+    const calls = mockResponses([
+      { chunks: [chunk('{"type":"done","answer":"ok","sources":[]}\n'), { done: true }] },
+    ])
+    store.dispatch(toggleThinking())
+
+    await store.dispatch(ask('q'))
+
+    expect(JSON.parse(String(calls[0].body))).toMatchObject({ question: 'q', thinking: 'high' })
+    store.dispatch(toggleThinking())
   })
 })

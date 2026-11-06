@@ -108,7 +108,7 @@ async def ask_stream(
     else:
         max_sources = max(1, min(int(payload.max_sources or 10), settings.max_sources_cap))
         max_steps = settings.max_steps
-    effort = settings.deep_reasoning_effort if payload.deep else settings.normal_reasoning_effort
+    effort = settings.deep_reasoning_effort if payload.deep else (payload.thinking or settings.normal_reasoning_effort)
     user_id = user.id if user is not None else None
 
     async def events():

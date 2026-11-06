@@ -13,6 +13,7 @@ interface StreamState {
   error: string
   streamed: boolean
   deep: boolean
+  thinking: 'low' | 'high'
   conversationId: number | null
 }
 
@@ -27,6 +28,7 @@ const initialState: StreamState = {
   error: '',
   streamed: false,
   deep: false,
+  thinking: 'low',
   conversationId: null,
 }
 
@@ -80,8 +82,11 @@ const streamSlice = createSlice({
     toggleDeep(state) {
       state.deep = !state.deep
     },
+    toggleThinking(state) {
+      state.thinking = state.thinking === 'low' ? 'high' : 'low'
+    },
     reset(state) {
-      return { ...initialState, deep: state.deep }
+      return { ...initialState, deep: state.deep, thinking: state.thinking }
     },
     goHome() {
       return { ...initialState }
@@ -89,5 +94,5 @@ const streamSlice = createSlice({
   },
 })
 
-export const { start, stage, token, step, answer, fail, toggleDeep, reset, goHome, setConversation } = streamSlice.actions
+export const { start, stage, token, step, answer, fail, toggleDeep, toggleThinking, reset, goHome, setConversation } = streamSlice.actions
 export default streamSlice.reducer

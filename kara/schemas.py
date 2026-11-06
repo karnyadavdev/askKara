@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -37,5 +39,6 @@ class AskRequest(BaseModel):
     question: str
     max_sources: int | None = None
     deep: bool = False
+    thinking: Literal["low", "high"] | None = None
     conversation_id: int | None = None
     token: str | None = Field(default=None, max_length=4096)

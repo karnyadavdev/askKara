@@ -249,3 +249,48 @@ async def test_llm_error_is_logged_and_emitted(client, caplog):
     assert events[-1]["type"] == "error"
     assert "network error" in events[-1]["message"]
     assert any("network error" in record.message for record in caplog.records)
+
+
+async def test_thinking_high_is_passed_to_provider(client):
+    provider = FakeStreamProvider([ChatReply(content="ok")])
+    client.app.dependency_overrides[get_provider] = lambda: provider
+
+    resp = await client.post(
+        "/api/ask/stream",
+        json={"question": "hello", "max_sources": 5, "thinking": "high"},
+    )
+
+    assert resp.status_code == 200
+    assert parse_ndjson(resp.text)[-1]["type"] == "done"
+    assert provider.efforts == ["high"]
+
+
+async def test_default_thinking_is_low(client):
+    provider = FakeStreamProvider([ChatReply(content="ok")])
+    client.app.dependency_overrides[get_provider] = lambda: provider
+
+    resp = await ask(client, "hello")
+
+    assert resp.status_code == 200
+    assert provider.efforts == ["low"]
+
+
+async def test_deep_ignores_thinking_choice(client):
+    provider = FakeStreamProvider([ChatReply(content="ok")])
+    client.app.dependency_overrides[get_provider] = lambda: provider
+
+    resp = await client.post(
+        "/api/ask/stream",
+        json={"question": "hello", "max_sources": 5, "deep": True, "thinking": "low"},
+    )
+
+    assert resp.status_code == 200
+    assert provider.efforts == ["high"]
+
+
+async def test_invalid_thinking_value_is_rejected(client):
+    resp = await client.post(
+        "/api/ask/stream",
+        json={"question": "hello", "max_sources": 5, "thinking": "max"},
+    )
+    assert resp.status_code == 422

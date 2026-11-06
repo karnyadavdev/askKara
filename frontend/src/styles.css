@@ -1087,3 +1087,33 @@ body {
     line-height: 1.5;
     white-space: pre;
 }
+
+.thinking-toggle {
+    margin-top: 14px;
+    display: inline-block;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    cursor: pointer;
+    transition: color 0.25s, border-color 0.25s;
+}
+
+.thinking-toggle:hover {
+    color: var(--input-text);
+    border-color: var(--text-dim);
+}
+
+.thinking-toggle.active {
+    color: #03130c;
+    background: var(--green);
+    border-color: var(--green);
+}
+
+.followup-line .thinking-toggle {
+    margin-top: 0;
+    margin-left: 12px;
+    flex-shrink: 0;
+}
