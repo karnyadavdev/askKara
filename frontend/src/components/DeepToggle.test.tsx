@@ -28,9 +28,9 @@ describe('DeepToggle', () => {
     )
 
     expect(screen.getByTestId('deep-flag')).toHaveTextContent('off')
-    await user.click(screen.getByRole('button', { name: 'DEEP RESEARCH' }))
+    await user.click(screen.getByRole('button', { name: 'DEEP' }))
     expect(screen.getByTestId('deep-flag')).toHaveTextContent('on')
-    expect(screen.getByRole('button', { name: 'DEEP RESEARCH' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'DEEP' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('exposes pressed state for screen readers', async () => {
@@ -52,7 +52,7 @@ describe('DeepToggle', () => {
       </>,
     )
 
-    await user.click(screen.getByRole('button', { name: 'DEEP RESEARCH' }))
+    await user.click(screen.getByRole('button', { name: 'DEEP' }))
     expect(screen.getByTestId('deep-flag')).toHaveTextContent('on')
     act(() => {
       store.dispatch(goHome())

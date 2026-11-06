@@ -12,7 +12,7 @@ export default function DeepToggle() {
       aria-pressed={deep}
       onClick={() => dispatch(toggleDeep())}
     >
-      DEEP RESEARCH
+      DEEP
     </button>
   )
 }

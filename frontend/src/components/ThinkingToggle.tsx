@@ -17,7 +17,7 @@ export default function ThinkingToggle() {
       aria-pressed={highest}
       onClick={() => dispatch(toggleThinking())}
     >
-      THINKING: {highest ? 'HIGHEST' : 'LOW'}
+      THINK: {highest ? 'HIGH' : 'LOW'}
     </button>
   )
 }

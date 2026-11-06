@@ -29,12 +29,12 @@ describe('ThinkingToggle', () => {
     )
 
     expect(screen.getByTestId('thinking-flag')).toHaveTextContent('low')
-    expect(screen.getByRole('button', { name: 'THINKING: LOW' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'THINK: LOW' })).toHaveAttribute('aria-pressed', 'false')
 
-    await user.click(screen.getByRole('button', { name: 'THINKING: LOW' }))
+    await user.click(screen.getByRole('button', { name: 'THINK: LOW' }))
 
     expect(screen.getByTestId('thinking-flag')).toHaveTextContent('high')
-    expect(screen.getByRole('button', { name: 'THINKING: HIGHEST' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'THINK: HIGH' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('is hidden while deep research is on', () => {
@@ -44,6 +44,6 @@ describe('ThinkingToggle', () => {
       store.dispatch(toggleDeep())
     })
 
-    expect(screen.queryByRole('button', { name: /THINKING/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /THINK/ })).toBeNull()
   })
 })
