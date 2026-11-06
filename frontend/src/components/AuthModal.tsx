@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLoginMutation, useRegisterMutation } from '../features/authApi'
+import { registerErrorMessage } from '../features/authErrors'
 
 type Props = {
   onClose: () => void
@@ -22,8 +23,8 @@ export default function AuthModal({ onClose, onAuth }: Props) {
       const mutation = mode === 'login' ? login : register
       const result = await mutation({ email, password }).unwrap()
       onAuth(result.access_token)
-    } catch {
-      setError(mode === 'login' ? 'Invalid email or password' : 'Could not register that email')
+    } catch (error) {
+      setError(mode === 'login' ? 'Invalid email or password' : registerErrorMessage(error))
     }
   }
 
@@ -45,6 +46,7 @@ export default function AuthModal({ onClose, onAuth }: Props) {
           onChange={(event) => setPassword(event.target.value)}
           required
         />
+        {mode === 'register' ? <p className="auth-hint">Use at least 8 characters.</p> : null}
         {error ? <p className="auth-error">{error}</p> : null}
         <button type="submit" className="auth-submit" disabled={busy}>
           {busy ? 'Working...' : mode === 'login' ? 'Sign in' : 'Register'}
