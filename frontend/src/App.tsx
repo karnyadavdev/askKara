@@ -309,7 +309,7 @@ export default function App() {
   )
 }
 
-function FollowupInput({
+export function FollowupInput({
   busy,
   onSubmit,
 }: {
@@ -338,7 +338,7 @@ function FollowupInput({
         ref={inputRef}
         type="text"
         className="input-followup"
-        placeholder={busy ? 'Researching...' : 'Dig deeper...'}
+        placeholder="Dig deeper..."
         autoComplete="off"
         value={value}
         onChange={(event) => setValue(event.target.value)}
