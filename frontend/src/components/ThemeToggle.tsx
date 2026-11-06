@@ -1,20 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { applyTheme } from '../features/theme'
 
 export default function ThemeToggle() {
   const [light, setLight] = useState(() => document.documentElement.getAttribute('data-theme') === 'light')
 
-  useEffect(() => {
-    if (light) {
-      document.documentElement.setAttribute('data-theme', 'light')
-      localStorage.setItem('kara_theme', 'light')
-    } else {
-      document.documentElement.removeAttribute('data-theme')
-      localStorage.setItem('kara_theme', 'dark')
-    }
-  }, [light])
+  function toggle() {
+    const next = !light
+    setLight(next)
+    const theme = next ? 'light' : 'dark'
+    applyTheme(theme)
+    localStorage.setItem('kara_theme', theme)
+  }
 
   return (
-    <button className="theme-toggle" aria-label="Toggle light/dark mode" onClick={() => setLight((value) => !value)}>
+    <button className="theme-toggle" aria-label="Toggle light/dark mode" onClick={toggle}>
       <svg className="icon icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
       </svg>
