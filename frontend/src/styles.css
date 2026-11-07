@@ -804,7 +804,7 @@ body {
     content: '+';
     position: absolute;
     left: 0;
-    top: 50%;
+    top: 33px;
     transform: translateY(-50%);
     color: var(--green);
     font-size: 1.5rem;
@@ -812,14 +812,20 @@ body {
 }
 
 .input-followup {
+    display: block;
     width: 100%;
     padding: 20px 20px 20px 40px;
     font-size: 1.2rem;
+    line-height: 1.4;
     color: var(--input-text);
     background: transparent;
     border: none;
     outline: none;
     font-family: var(--font-body);
+    resize: none;
+    overflow-y: auto;
+    max-height: 40vh;
+    overflow-wrap: anywhere;
 }
 
 .input-followup::placeholder {
@@ -847,6 +853,7 @@ body {
         width: 38px;
         height: 38px;
     }
+
 }
 
 .auth-overlay {

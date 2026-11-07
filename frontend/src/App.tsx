@@ -317,14 +317,22 @@ export function FollowupInput({
   onSubmit: (question: string) => boolean
 }) {
   const [value, setValue] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (window.matchMedia('(pointer: fine)').matches) inputRef.current?.focus()
   }, [])
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault()
+  function resize() {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, Math.round(window.innerHeight * 0.4))}px`
+  }
+
+  useEffect(resize, [value])
+
+  function doSubmit() {
     if (busy) return
     const trimmed = value.trim()
     if (!trimmed) return
@@ -332,16 +340,29 @@ export function FollowupInput({
     setValue('')
   }
 
+  function submit(event: React.FormEvent) {
+    event.preventDefault()
+    doSubmit()
+  }
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault()
+      doSubmit()
+    }
+  }
+
   return (
     <form onSubmit={submit}>
-      <input
+      <textarea
         ref={inputRef}
-        type="text"
+        rows={1}
         className="input-followup"
         placeholder="Dig deeper..."
         autoComplete="off"
         value={value}
         onChange={(event) => setValue(event.target.value)}
+        onKeyDown={onKeyDown}
       />
     </form>
   )
