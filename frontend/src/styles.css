@@ -854,6 +854,34 @@ body {
         height: 38px;
     }
 
+    main:has(.section-results.active) ~ .theme-toggle {
+        bottom: 71px;
+    }
+
+    .followup-line {
+        flex-wrap: wrap;
+    }
+
+    .followup-line form {
+        flex: 1 1 100%;
+    }
+
+    .followup-line .deep-toggle,
+    .followup-line .thinking-toggle {
+        margin-top: 24px;
+        height: 26px;
+        padding: 0 14px;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .followup-line .deep-toggle {
+        margin-left: 0;
+    }
+
+    .followup-line .thinking-toggle {
+        margin-left: auto;
+    }
 }
 
 .auth-overlay {
