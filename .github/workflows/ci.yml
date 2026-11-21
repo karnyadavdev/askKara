@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   backend:
@@ -53,3 +54,67 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: frontend/dist
+
+  deploy:
+    needs: [backend, frontend]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.EC2_HOST }}
+      DEPLOY_KEY: ${{ secrets.EC2_SSH_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+
+      - name: Set up ssh
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Ship backend
+        run: |
+          set -euo pipefail
+          SSH_CMD="ssh -i ~/.ssh/id_deploy ubuntu@$HOST"
+          LOCAL_SHA=$(md5sum requirements.txt | cut -d' ' -f1)
+          REMOTE_SHA=$($SSH_CMD "cat /opt/askkara/requirements.txt 2>/dev/null | md5sum | cut -d' ' -f1" || true)
+          $SSH_CMD "sudo rm -rf /opt/askkara/kara.prev && sudo cp -r /opt/askkara/kara /opt/askkara/kara.prev"
+          rsync -az --delete --exclude '__pycache__' -e "ssh -i ~/.ssh/id_deploy" kara/ "ubuntu@$HOST:/opt/askkara/kara/"
+          rsync -az -e "ssh -i ~/.ssh/id_deploy" backend.py conftest.py requirements.txt "ubuntu@$HOST:/opt/askkara/"
+          if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+            $SSH_CMD "sudo /opt/askkara/.venv/bin/pip install -r /opt/askkara/requirements.txt"
+          fi
+          $SSH_CMD "sudo systemctl daemon-reload && sudo systemctl restart askkara && systemctl is-active askkara"
+
+      - name: Ship frontend
+        run: |
+          set -euo pipefail
+          SSH_CMD="ssh -i ~/.ssh/id_deploy ubuntu@$HOST"
+          rsync -az -e "ssh -i ~/.ssh/id_deploy" dist/ "ubuntu@$HOST:/tmp/askkara-dist/"
+          $SSH_CMD "sudo rm -rf /var/www/askkara.prev && sudo cp -r /var/www/askkara /var/www/askkara.prev && sudo rm -rf /var/www/askkara/* && sudo cp -r /tmp/askkara-dist/* /var/www/askkara/ && sudo chown -R www-data:www-data /var/www/askkara"
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/id_deploy "ubuntu@$HOST" "curl -fsS http://127.0.0.1:4177/api/health"
+          curl -fsS --retry 5 --retry-delay 5 https://d24884eoij7cl7.cloudfront.net/api/health
+          curl -fsS -o /dev/null https://d24884eoij7cl7.cloudfront.net/
+
+      - name: Invalidate CloudFront
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          pip install awscli
+          aws cloudfront create-invalidation --distribution-id E3FSEIVAQ7H3YG --paths "/*"
