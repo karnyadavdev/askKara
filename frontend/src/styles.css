@@ -864,6 +864,14 @@ body {
         border-bottom: none;
     }
 
+    .followup-line::before {
+        left: 20px;
+    }
+
+    .input-followup {
+        padding-left: 60px;
+    }
+
     .followup-line form {
         flex: 1 1 100%;
         border-bottom: 1px solid var(--green);
