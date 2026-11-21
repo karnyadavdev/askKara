@@ -50,11 +50,15 @@ function renderModal() {
 }
 
 describe('ProfileModal', () => {
-  it('prefills the name and disables save until it changes', () => {
+  it('prefills the name and opens the editor on click', async () => {
+    const user = userEvent.setup()
     renderModal()
 
+    expect(screen.getByText('Karan')).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: 'Edit name' }))
+
     expect(screen.getByPlaceholderText('Your name')).toHaveValue('Karan')
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save name' })).toBeTruthy()
   })
 
   it('saves the name with a PATCH to /api/auth/me', async () => {
@@ -65,9 +69,10 @@ describe('ProfileModal', () => {
 
     renderModal()
 
+    await user.click(screen.getByRole('button', { name: 'Edit name' }))
     await user.clear(screen.getByPlaceholderText('Your name'))
     await user.type(screen.getByPlaceholderText('Your name'), 'Karan Yadav')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
 
     await screen.findByText('Name saved.')
     const request = lastRequest()
@@ -82,9 +87,10 @@ describe('ProfileModal', () => {
 
     renderModal()
 
+    await user.click(screen.getByRole('button', { name: 'Edit name' }))
     await user.clear(screen.getByPlaceholderText('Your name'))
     await user.type(screen.getByPlaceholderText('Your name'), 'Karan Yadav')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
 
     await screen.findByText('Could not save that name.')
   })

@@ -6,6 +6,12 @@ AskKara is a research assistant that answers questions with live web sources. A 
 
 **Live demo:** https://d24884eoij7cl7.cloudfront.net
 
+<p align="center">
+  <img src="docs/screenshots/answer-table.png" width="32%" alt="Answer with a pricing table and sources">
+  <img src="docs/screenshots/answer-streaming.png" width="32%" alt="Research streaming with a followup box">
+  <img src="docs/screenshots/answer-guide.png" width="32%" alt="How AskKara compares to ChatGPT">
+</p>
+
 ## What it does
 
 - Accepts natural-language questions and direct URLs.
@@ -19,19 +25,20 @@ AskKara is a research assistant that answers questions with live web sources. A 
 
 ```
 Browser (React 19 + Redux Toolkit, Vite 8, TypeScript 6)
-   |  POST /api/ask/stream  ->  SSE: stage | step | token | ping | done
-   v
+  |  POST /api/ask/stream -> SSE: stage | step | token | ping | done
+  v
 FastAPI (kara/routers/ask.py)  rate limit, history window, SSE framing
-   v
+  v
 Agent loop (kara/agent/loop.py)  owns messages, sources, tool trace
-   |            |             |
-   v            v             v
-web_search   yada_scrape   yada_scrape_many      (kara/agent/tools.py)
-   |            |
-ddgs          YADA scraper (import or HTTP mode)
-                  |
-                  v
-            LLM provider chain (kara/llm/)  resilient failover, retries, effort levels
+   |              |              |
+   v              v              v
+   web_search     yada_scrape    yada_scrape_many  (kara/agent/tools.py)
+   |              |
+   v              v
+   ddgs           YADA scraper (import or HTTP mode)
+                         |
+                         v
+                     LLM provider chain (kara/llm/)  resilient failover, retries, effort levels
 ```
 
 | component | role |

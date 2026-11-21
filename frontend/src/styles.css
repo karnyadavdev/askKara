@@ -498,6 +498,10 @@ body {
     border-color: var(--green);
 }
 
+.input-mirror.has-text {
+    border-bottom-color: transparent;
+}
+
 .input-mirror .mirror-text::before {
     content: '\200b';
 }
@@ -1036,6 +1040,7 @@ body {
     cursor: pointer;
     padding: 0;
     overflow: hidden;
+    position: relative;
     transition: border-color 0.3s, box-shadow 0.3s;
 }
 
@@ -1050,28 +1055,90 @@ body {
     object-fit: cover;
 }
 
+.avatar-edit-icon {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    color: var(--text-strong);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.avatar-pick:hover .avatar-edit-icon,
+.avatar-pick:focus-visible .avatar-edit-icon {
+    opacity: 1;
+}
+
 .avatar-file {
     display: none;
 }
 
-.profile-name-row {
+.profile-name-display {
     display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.profile-name-edit {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px;
+    margin-right: -21px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.profile-name-display:hover .profile-name-edit,
+.profile-name-edit:focus-visible {
+    opacity: 1;
+}
+
+.profile-name-edit:hover {
+    color: var(--green);
+}
+
+.profile-name-edit-row {
+    display: flex;
+    align-items: center;
     gap: 8px;
     width: 100%;
 }
 
-.profile-name-row input {
+.profile-name-edit-row input {
     flex: 1;
     min-width: 0;
 }
 
-.profile-save {
+.profile-name-confirm {
     flex-shrink: 0;
+    border: none;
+    background: none;
+    color: var(--green);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
 }
 
-.profile-save:disabled {
+.profile-name-confirm:disabled {
     opacity: 0.5;
     cursor: default;
+}
+
+@media (hover: none) {
+    .avatar-edit-icon,
+    .profile-name-edit {
+        opacity: 1;
+    }
 }
 
 .sidebar-empty {

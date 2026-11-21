@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUpdateProfileMutation, useUploadAvatarMutation } from '../features/authApi'
 import { avatarErrorMessage } from '../features/avatarErrors'
 
@@ -10,15 +10,27 @@ type Props = {
   onSignOut: () => void
 }
 
+const pencil = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+)
+
 export default function ProfileModal({ email, name, avatarUrl, onClose, onSignOut }: Props) {
   const [draft, setDraft] = useState(name ?? '')
+  const [editing, setEditing] = useState(false)
   const [status, setStatus] = useState('')
   const [saveProfile, saveState] = useUpdateProfileMutation()
   const [uploadAvatar, uploadState] = useUploadAvatarMutation()
   const fileRef = useRef<HTMLInputElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
   const busy = saveState.isLoading || uploadState.isLoading
   const initial = (name || email || '?').charAt(0).toUpperCase()
-  const dirty = draft.trim() !== (name ?? '')
+
+  useEffect(() => {
+    if (editing) nameRef.current?.select()
+  }, [editing])
 
   async function save() {
     const trimmed = draft.trim()
@@ -26,10 +38,17 @@ export default function ProfileModal({ email, name, avatarUrl, onClose, onSignOu
     setStatus('')
     try {
       await saveProfile(trimmed).unwrap()
+      setEditing(false)
       setStatus('Name saved.')
     } catch {
       setStatus('Could not save that name.')
     }
+  }
+
+  function cancel() {
+    setDraft(name ?? '')
+    setEditing(false)
+    setStatus('')
   }
 
   async function pickPicture(event: React.ChangeEvent<HTMLInputElement>) {
@@ -58,6 +77,7 @@ export default function ProfileModal({ email, name, avatarUrl, onClose, onSignOu
           title="Change picture"
         >
           {avatarUrl ? <img src={avatarUrl} alt="" /> : initial}
+          <span className="avatar-edit-icon" aria-hidden="true">{pencil}</span>
         </button>
         <input
           ref={fileRef}
@@ -66,28 +86,46 @@ export default function ProfileModal({ email, name, avatarUrl, onClose, onSignOu
           className="avatar-file"
           onChange={pickPicture}
         />
-        <h3>{name || 'Account'}</h3>
+        {editing ? (
+          <div className="profile-name-edit-row">
+            <input
+              ref={nameRef}
+              type="text"
+              maxLength={100}
+              placeholder="Your name"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void save()
+                if (event.key === 'Escape') cancel()
+              }}
+            />
+            <button
+              type="button"
+              className="profile-name-confirm"
+              aria-label="Save name"
+              title="Save name"
+              onClick={() => void save()}
+              disabled={busy || !draft.trim()}
+            >
+              ✓
+            </button>
+          </div>
+        ) : (
+          <h3 className="profile-name-display">
+            <span>{name || 'Account'}</span>
+            <button
+              type="button"
+              className="profile-name-edit"
+              aria-label="Edit name"
+              title="Edit name"
+              onClick={() => setEditing(true)}
+            >
+              {pencil}
+            </button>
+          </h3>
+        )}
         <p className="profile-email">{email}</p>
-        <div className="profile-name-row">
-          <input
-            type="text"
-            maxLength={100}
-            placeholder="Your name"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') save()
-            }}
-          />
-          <button
-            type="button"
-            className="auth-submit profile-save"
-            onClick={save}
-            disabled={busy || !dirty || !draft.trim()}
-          >
-            {busy ? 'Saving...' : 'Save'}
-          </button>
-        </div>
         {status ? <p className="auth-hint">{status}</p> : null}
         <button type="button" className="auth-submit" onClick={onSignOut}>
           Sign out
