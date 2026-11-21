@@ -93,10 +93,12 @@ jobs:
           REMOTE_SHA=$($SSH_CMD "cat /opt/askkara/requirements.txt 2>/dev/null | md5sum | cut -d' ' -f1" || true)
           $SSH_CMD "sudo rm -rf /opt/askkara/kara.prev && sudo cp -r /opt/askkara/kara /opt/askkara/kara.prev"
           rsync -az --delete --exclude '__pycache__' -e "ssh -i ~/.ssh/id_deploy" kara/ "ubuntu@$HOST:/opt/askkara/kara/"
-          rsync -az -e "ssh -i ~/.ssh/id_deploy" backend.py conftest.py requirements.txt "ubuntu@$HOST:/opt/askkara/"
+          rsync -az --delete --exclude '__pycache__' -e "ssh -i ~/.ssh/id_deploy" alembic/ "ubuntu@$HOST:/opt/askkara/alembic/"
+          rsync -az -e "ssh -i ~/.ssh/id_deploy" backend.py conftest.py requirements.txt alembic.ini "ubuntu@$HOST:/opt/askkara/"
           if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
             $SSH_CMD "sudo /opt/askkara/.venv/bin/pip install -r /opt/askkara/requirements.txt"
           fi
+          $SSH_CMD "cd /opt/askkara && sudo cp kara.db kara.db.pre-migrate 2>/dev/null || true; sudo .venv/bin/python -m alembic upgrade head"
           $SSH_CMD "sudo systemctl daemon-reload && sudo systemctl restart askkara && systemctl is-active askkara"
 
       - name: Ship frontend

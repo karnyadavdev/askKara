@@ -4,6 +4,8 @@ import type { RootState } from '../app/store'
 export interface UserOut {
   id: number
   email: string
+  name: string | null
+  avatar_url: string | null
 }
 
 export interface TokenOut {
@@ -42,7 +44,21 @@ export const authApi = createApi({
       query: (token) => ({ url: '/me', method: 'POST', body: { token } }),
       providesTags: ['AuthUser'],
     }),
+    updateProfile: builder.mutation<UserOut, string>({
+      query: (name) => ({ url: '/me', method: 'PATCH', body: { name } }),
+      invalidatesTags: ['AuthUser'],
+    }),
+    uploadAvatar: builder.mutation<UserOut, FormData>({
+      query: (form) => ({ url: '/avatar', method: 'POST', body: form }),
+      invalidatesTags: ['AuthUser'],
+    }),
   }),
 })
 
-export const { useRegisterMutation, useLoginMutation, useMeQuery } = authApi
+export const {
+  useRegisterMutation,
+  useLoginMutation,
+  useMeQuery,
+  useUpdateProfileMutation,
+  useUploadAvatarMutation,
+} = authApi

@@ -23,6 +23,20 @@ class LoginIn(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: str
+    name: str | None = None
+    avatar_url: str | None = None
+
+
+class ProfileIn(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Name cannot be blank")
+        return value
 
 
 class TokenOut(BaseModel):

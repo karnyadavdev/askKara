@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 os.environ.setdefault("KARA_AUTH_REQUIRED", "0")
 os.environ.setdefault("YADA_MODE", "off")
 
+from kara.avatars import reset_avatar_store  # noqa: E402
 from kara.config import get_settings  # noqa: E402
 from kara.db import create_all_tables, reset_db_state  # noqa: E402
 from kara.deps import get_provider, get_yada, reset_runtime_state  # noqa: E402
@@ -28,6 +29,7 @@ def _reset(tmp_path, monkeypatch, auth_required="0"):
     reset_runtime_state()
     reset_rate_limiter()
     reset_auth_limiter()
+    reset_avatar_store()
 
 
 def _teardown():
@@ -36,6 +38,7 @@ def _teardown():
     reset_runtime_state()
     reset_rate_limiter()
     reset_auth_limiter()
+    reset_avatar_store()
 
 
 @pytest.fixture

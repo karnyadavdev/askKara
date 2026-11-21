@@ -64,6 +64,9 @@ class Settings:
     host: str = "127.0.0.1"
     port: int = 4177
 
+    avatar_bucket: str = ""
+    avatar_region: str = "ap-south-1"
+
     extra: dict = field(default_factory=dict, compare=False)
 
     @property
@@ -138,4 +141,6 @@ def get_settings() -> Settings:
         deep_reasoning_effort=os.getenv("KARA_DEEP_REASONING_EFFORT", "high").strip().lower(),
         host=os.getenv("KARA_HOST", "127.0.0.1").strip(),
         port=int(os.getenv("KARA_PORT", "4177")),
+        avatar_bucket=os.getenv("KARA_AVATAR_BUCKET", "").strip(),
+        avatar_region=os.getenv("KARA_AVATAR_REGION", "ap-south-1").strip(),
     )

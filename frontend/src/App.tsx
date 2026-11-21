@@ -236,7 +236,7 @@ export default function App() {
                 onClick={() => setProfileOpen(true)}
                 aria-label="Account"
               >
-                {(me?.email ?? '?').charAt(0).toUpperCase()}
+                {me?.avatar_url ? <img src={me.avatar_url} alt="" /> : (me?.email ?? '?').charAt(0).toUpperCase()}
               </button>
             </>
           ) : (
@@ -298,6 +298,8 @@ export default function App() {
       {profileOpen ? (
         <ProfileModal
           email={me?.email ?? ''}
+          name={me?.name ?? null}
+          avatarUrl={me?.avatar_url ?? null}
           onClose={() => setProfileOpen(false)}
           onSignOut={() => {
             applyAuth('')

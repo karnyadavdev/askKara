@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from kara.config import get_settings
 from kara.db import create_all_tables
-from kara.routers import ask, auth, health, history
+from kara.routers import ask, auth, avatars, health, history
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(avatars.router)
     app.include_router(ask.router)
     app.include_router(history.router)
 
