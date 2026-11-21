@@ -1061,10 +1061,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.55);
-    color: var(--text-strong);
+    background: rgba(3, 3, 3, 0.6);
+    color: var(--green);
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.25s var(--ease-out);
 }
 
 .avatar-pick:hover .avatar-edit-icon,
@@ -1080,21 +1080,20 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     margin: 0;
 }
 
 .profile-name-edit {
     display: inline-flex;
     align-items: center;
-    padding: 4px;
-    margin-right: -21px;
+    padding: 3px;
     border: none;
     background: none;
     color: var(--text-dim);
     cursor: pointer;
     opacity: 0;
-    transition: opacity 0.2s, color 0.2s;
+    transition: opacity 0.25s var(--ease-out), color 0.25s;
 }
 
 .profile-name-display:hover .profile-name-edit,
@@ -1109,7 +1108,7 @@ body {
 .profile-name-edit-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     width: 100%;
 }
 
@@ -1120,13 +1119,19 @@ body {
 
 .profile-name-confirm {
     flex-shrink: 0;
-    border: none;
-    background: none;
-    color: var(--green);
-    font-size: 1.4rem;
-    line-height: 1;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--text-main);
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
     cursor: pointer;
-    padding: 4px 8px;
+    transition: color 0.25s, border-color 0.25s;
+}
+
+.profile-name-confirm:hover:not(:disabled) {
+    color: var(--green);
 }
 
 .profile-name-confirm:disabled {

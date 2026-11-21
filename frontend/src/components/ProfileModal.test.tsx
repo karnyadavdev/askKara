@@ -58,7 +58,7 @@ describe('ProfileModal', () => {
     await user.click(screen.getByRole('button', { name: 'Edit name' }))
 
     expect(screen.getByPlaceholderText('Your name')).toHaveValue('Karan')
-    expect(screen.getByRole('button', { name: 'Save name' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy()
   })
 
   it('saves the name with a PATCH to /api/auth/me', async () => {
@@ -72,7 +72,7 @@ describe('ProfileModal', () => {
     await user.click(screen.getByRole('button', { name: 'Edit name' }))
     await user.clear(screen.getByPlaceholderText('Your name'))
     await user.type(screen.getByPlaceholderText('Your name'), 'Karan Yadav')
-    await user.click(screen.getByRole('button', { name: 'Save name' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
 
     await screen.findByText('Name saved.')
     const request = lastRequest()
@@ -90,7 +90,7 @@ describe('ProfileModal', () => {
     await user.click(screen.getByRole('button', { name: 'Edit name' }))
     await user.clear(screen.getByPlaceholderText('Your name'))
     await user.type(screen.getByPlaceholderText('Your name'), 'Karan Yadav')
-    await user.click(screen.getByRole('button', { name: 'Save name' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
 
     await screen.findByText('Could not save that name.')
   })
