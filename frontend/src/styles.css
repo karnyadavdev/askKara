@@ -412,14 +412,14 @@ body {
     outline: none;
     resize: none;
     overflow: hidden;
-    padding: 0 0 6px;
+    padding: 0 calc(clamp(1.5rem, 3.5vw, 2.5rem) + 8px) 6px 0;
     color: transparent;
     caret-color: transparent;
     font-family: var(--font-body);
     font-size: clamp(1.5rem, 3.5vw, 2.5rem);
     font-weight: 500;
     letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 1.5;
     word-break: break-word;
     white-space: pre-wrap;
 }
@@ -494,10 +494,6 @@ body {
     transition: border-color 0.4s;
 }
 
-.input-editor:focus~.input-mirror {
-    border-color: var(--green);
-}
-
 .input-mirror.has-text {
     border-bottom-color: transparent;
 }
@@ -524,14 +520,18 @@ body {
     transition: opacity 0.3s var(--ease-out);
 }
 
-.input-editor:focus~.input-caret-layer .cursor-blink {
+.input-editor:placeholder-shown~.input-caret-layer .cursor-blink {
     opacity: 1;
     animation: blinkCursor 1s 0.3s infinite;
 }
 
-.input-editor:focus~.input-caret-layer:not(.bar-ready) .cursor-blink {
+.input-editor:placeholder-shown~.input-caret-layer:not(.bar-ready) .cursor-blink {
     opacity: 0;
     animation: none;
+}
+
+.input-editor:not(:placeholder-shown) {
+    caret-color: var(--green);
 }
 
 @keyframes blinkCursor {
