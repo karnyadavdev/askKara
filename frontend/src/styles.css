@@ -860,10 +860,12 @@ body {
 
     .followup-line {
         flex-wrap: wrap;
+        border-bottom: none;
     }
 
     .followup-line form {
         flex: 1 1 100%;
+        border-bottom: 1px solid var(--green);
     }
 
     .followup-line .deep-toggle,
