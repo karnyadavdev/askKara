@@ -520,12 +520,12 @@ body {
     transition: opacity 0.3s var(--ease-out);
 }
 
-.input-editor:placeholder-shown~.input-caret-layer .cursor-blink {
+.input-editor:focus:placeholder-shown~.input-caret-layer .cursor-blink {
     opacity: 1;
     animation: blinkCursor 1s 0.3s infinite;
 }
 
-.input-editor:placeholder-shown~.input-caret-layer:not(.bar-ready) .cursor-blink {
+.input-editor:focus:placeholder-shown~.input-caret-layer:not(.bar-ready) .cursor-blink {
     opacity: 0;
     animation: none;
 }
