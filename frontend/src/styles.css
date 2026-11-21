@@ -494,8 +494,8 @@ body {
     transition: border-color 0.4s;
 }
 
-.input-mirror.has-text {
-    border-bottom-color: transparent;
+.input-editor:focus~.input-mirror {
+    border-color: var(--green);
 }
 
 .input-mirror .mirror-text::before {

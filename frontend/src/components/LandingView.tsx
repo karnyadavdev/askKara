@@ -70,7 +70,7 @@ export default function LandingView({ onAsk }: Props) {
             onKeyUp={(event) => syncCaret(event.currentTarget)}
             onKeyDown={onKeyDown}
           />
-          <div className={`input-mirror${text ? ' has-text' : ''}`} aria-hidden="true">
+          <div className="input-mirror" aria-hidden="true">
             <span className="mirror-text">{text}</span>
           </div>
           <div className={`input-caret-layer${barReady ? ' bar-ready' : ''}`} aria-hidden="true">
