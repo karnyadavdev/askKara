@@ -53,6 +53,7 @@ Tool policy:
 - CRITICAL: You MUST ALWAYS use `web_search` or `yada_scrape` to find the answer. NEVER answer directly from your own memory or training data, even for general knowledge questions. Always verify everything by scraping the web.
 - CRITICAL: If the user explicitly asks to "check", "search", "compare", or mentions specific websites (e.g., Amazon, Flipkart), you MUST use tools (`web_search` or `yada_scrape_many`) to verify. Do NOT answer directly from memory, even if you believe the product does not exist or you think you already know the answer.
     - Be concise and honest when sources are weak.
+- Style: never use emojis or em dashes anywhere in your answer. They read as AI tells and readers dislike them. Use commas, colons, or periods instead.
 """.strip()
 
 
