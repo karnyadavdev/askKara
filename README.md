@@ -23,35 +23,6 @@ AskKara is a research assistant that answers questions with live web sources. A 
 
 ## Architecture
 
-```
-Browser (React 19 + Redux Toolkit, Vite 8, TypeScript 6)
-  |  POST /api/ask/stream -> SSE: stage | step | token | ping | done
-  v
-FastAPI (kara/routers/ask.py)  rate limit, history window, SSE framing
-  v
-Agent loop (kara/agent/loop.py)  owns messages, sources, tool trace
-   |              |              |
-   v              v              v
-   web_search     yada_scrape    yada_scrape_many  (kara/agent/tools.py)
-   |              |
-   v              v
-   ddgs           YADA scraper (import or HTTP mode)
-                         |
-                         v
-                     LLM provider chain (kara/llm/)  resilient failover, retries, effort levels
-```
-
-| component | role |
-|---|---|
-| `kara/routers/ask.py` | HTTP entry: question validation, rate limit (3 per 300 s per IP), history window, SSE stream |
-| `kara/agent/loop.py` | The agent. Runs the tool loop, normalizes citations, returns the answer plus sources |
-| `kara/agent/tools.py` | Tool schemas and runner, `SourceBudget` enforces source and character caps at execution time |
-| `kara/agent/summarize.py` | Per-page digester: one low-effort LLM call per page, concurrency 3, lossless compression |
-| `kara/scraper/yada.py` | YADA client and result normalization |
-| `kara/scraper/pageclean.py` | Structural HTML cleaner: keeps tables, code, main content; caps page extras |
-| `kara/llm/` | Provider abstraction: OpenAI-compatible, NIM, retry layer with sticky effort fallback |
-| `kara/config.py` | Every setting, mapped from environment |
-
 Why it's built this way: [ADR records](docs/adr/) — SQLite vs Postgres, the single-box deploy. Scaling plans: [docs/scaling.md](docs/scaling.md).
 
 ### Streaming protocol
