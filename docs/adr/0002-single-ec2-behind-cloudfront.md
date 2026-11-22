@@ -4,7 +4,7 @@
 
 ## Context
 
-Full AWS (ECS, RDS, ALB) is more machinery than one demo needs, and it bills while idle. The account is also under an org policy that denies S3 and EC2 profile changes, which rules out several managed options anyway.
+Full AWS (ECS, RDS, ALB) is more machinery than one demo needs, and it bills while idle.
 
 ## Decision
 
