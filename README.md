@@ -52,6 +52,8 @@ Agent loop (kara/agent/loop.py)  owns messages, sources, tool trace
 | `kara/llm/` | Provider abstraction: OpenAI-compatible, NIM, retry layer with sticky effort fallback |
 | `kara/config.py` | Every setting, mapped from environment |
 
+Why it's built this way: [ADR records](docs/adr/) — SQLite vs Postgres, the single-box deploy.
+
 ### Streaming protocol
 
 The backend emits five SSE event types: `stage` (research phase label), `step` (narration), `token` (answer text), `ping` (keep-alive during long model silence), and `done` (final answer plus sources). There are deliberately no stream-reset events: the answer is never wiped mid-stream. Stage labels collapse into an archived disclosure in the UI, and the answer types in with a 2 to 12 ms per-character clamp.
@@ -97,14 +99,14 @@ Open http://localhost:5173. Health check: http://127.0.0.1:4177/api/health
 ## Tests
 
 ```bash
-python -m pytest tests -q          # 205 backend tests
+python -m pytest tests -q --cov=kara   # 228 backend tests
 cd frontend
-npm run lint                       # oxlint
-npm run test                       # 28 frontend tests (vitest)
-npm run build                      # tsc + vite
+npm run lint                           # oxlint
+npm run test:coverage                  # 73 frontend tests (vitest)
+npm run build                          # tsc + vite
 ```
 
-CI runs all of the above on every push to `main`.
+CI runs all of the above on every push to `main`, including coverage: backend must stay over 75%, frontend over 60%.
 
 ## YADA Standalone API
 

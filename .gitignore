@@ -10,3 +10,5 @@ kara.db-shm
 kara.db-wal
 .pytest_cache/
 .venv/
+frontend/coverage/
+.coverage
