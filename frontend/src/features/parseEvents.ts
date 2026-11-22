@@ -8,8 +8,6 @@ export interface StreamEvent {
   retryable?: boolean
 }
 
-// NDJSON lines can split across network chunks, so a chunk only yields the
-// complete lines it carries and the remainder waits for the next chunk.
 export function parseEvents(buffer: string): { events: StreamEvent[]; rest: string } {
   const lines = buffer.split('\n')
   const rest = lines.pop() ?? ''
@@ -20,7 +18,6 @@ export function parseEvents(buffer: string): { events: StreamEvent[]; rest: stri
     try {
       events.push(JSON.parse(line) as StreamEvent)
     } catch {
-      // a malformed line should never kill the stream
     }
   }
 

@@ -134,7 +134,6 @@ export function ask(question: string, conversationId: number | null = null, maxS
             try {
               final.events.push(JSON.parse(final.rest) as StreamEvent)
             } catch {
-              // truncated trailing event: dropped, caught by the terminal check below
             }
           }
           handleEvents(final.events)

@@ -23,7 +23,7 @@ AskKara is a research assistant that answers questions with live web sources. A 
 
 ## Architecture
 
-Why it's built this way: [ADR records](docs/adr/) — SQLite vs Postgres, the single-box deploy. Scaling plans: [docs/scaling.md](docs/scaling.md).
+Why it's built this way: [ADR records](docs/adr/) on SQLite vs Postgres and the single-box deploy. Scaling plans: [docs/scaling.md](docs/scaling.md).
 
 ### Streaming protocol
 

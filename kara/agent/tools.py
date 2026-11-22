@@ -110,7 +110,6 @@ _ALLOWED_NODES = (
 
 
 def safe_calculate(expression: str) -> tuple[bool, str]:
-    """Evaluate arithmetic only. Rejects names, calls, attributes, comprehensions."""
     text = str(expression or "").strip()
     if not text:
         return False, "Empty expression"

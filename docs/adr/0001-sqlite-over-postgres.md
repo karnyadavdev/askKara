@@ -12,6 +12,6 @@ Use SQLite (`kara.db`) with SQLAlchemy and Alembic. No raw SQL in the app.
 
 ## Consequences
 
-- Zero ops. Backups are a file snapshot (see `deploy/db-backup.sh`).
-- No concurrent writers — fine here, the app is read-heavy with a single worker.
+- Zero ops. Backups are a file snapshot pushed to S3 nightly (see `deploy/db-backup.sh`).
+- No concurrent writers: fine here, the app is read-heavy with a single worker.
 - Moving to Postgres later is a connection-string swap plus a data import, because everything goes through the ORM. The day multiple workers or concurrent writes show up, that's the trigger to migrate.
