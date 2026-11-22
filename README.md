@@ -52,7 +52,7 @@ Agent loop (kara/agent/loop.py)  owns messages, sources, tool trace
 | `kara/llm/` | Provider abstraction: OpenAI-compatible, NIM, retry layer with sticky effort fallback |
 | `kara/config.py` | Every setting, mapped from environment |
 
-Why it's built this way: [ADR records](docs/adr/) — SQLite vs Postgres, the single-box deploy.
+Why it's built this way: [ADR records](docs/adr/) — SQLite vs Postgres, the single-box deploy. Scaling plans: [docs/scaling.md](docs/scaling.md).
 
 ### Streaming protocol
 
