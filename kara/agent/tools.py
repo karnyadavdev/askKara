@@ -137,6 +137,8 @@ def safe_calculate(expression: str) -> tuple[bool, str]:
     return True, str(result)
 
 
+# LLMs don't reliably obey "use at most N sources" from a prompt, so the caps
+# live here and get checked at the moment a scrape would run.
 class SourceBudget:
     def __init__(self, max_sources: int, total_chars: int):
         self.max_sources = max(1, max_sources)

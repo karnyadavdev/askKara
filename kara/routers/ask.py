@@ -22,6 +22,9 @@ router = APIRouter(tags=["ask"])
 
 logger = logging.getLogger("kara.ask")
 
+# CloudFront's origin timeout is an inter-packet timer, so a model that thinks
+# for minutes without emitting gets the stream dropped as dead. Ping every 10s
+# keeps the connection alive.
 PING_INTERVAL_S = 10.0
 
 _rate_limiter = SlidingWindowLimiter(max_hits=15, window_seconds=300.0)
