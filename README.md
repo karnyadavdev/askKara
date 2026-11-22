@@ -41,7 +41,7 @@ pip install -e ../YADA-Scraper-API   # or set YADA_MODE=http and YADA_API_URL
 cp .env.example .env
 ```
 
-Set `NIM_API_KEY` in `.env` (get a key at build.nvidia.com). Every setting is documented in `.env.example`. YADA can run in-process (`YADA_MODE=import`), over HTTP against a separate YADA server (`YADA_MODE=http`), or off for tests (`YADA_MODE=off`).
+Set `INFERX_API_KEY` in `.env` (get a key at inferx.net). Every setting is documented in `.env.example`. YADA can run in-process (`YADA_MODE=import`), over HTTP against a separate YADA server (`YADA_MODE=http`), or off for tests (`YADA_MODE=off`).
 
 Frontend (Node 24):
 
@@ -95,5 +95,5 @@ YADA then runs at http://127.0.0.1:8000.
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy (async), Alembic, httpx
 - **Frontend:** React 19, Redux Toolkit, Vite 8, TypeScript 6, vitest, oxlint
 - **Scraping:** YADA (curl_cffi TLS impersonation, Playwright fallback, strategy ladder)
-- **LLM:** OpenAI-compatible providers with retry and failover (NIM, InferX, Groq, OpenAI)
+- **LLM:** OpenAI-compatible endpoints, so any provider swaps in through one env var (`KARA_LLM_CHAIN`) with no code changes; retry and failover across the chain. Running InferX, also wired for NIM, Groq, OpenAI
 - **Infra:** EC2 + nginx + systemd behind CloudFront
