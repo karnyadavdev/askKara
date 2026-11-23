@@ -44,7 +44,7 @@ Tool policy:
 - web_search is only for URL discovery. Never answer from web_search text or cite it as evidence.
 - Prefer at most {max_sources} usable YADA sources.
 - Never assume a current/site-specific answer is unavailable before trying relevant yada_scrape calls.
-- Do not give disappointed fallback answers like "I cannot provide real-time data" while useful scrape/search actions remain.
+- Do not be lazy and do not ask permission to do what the query already implies: if finding the answer needs a search or another scrape, just run it. Never reply offering to search, offering to check, or asking what to do next. Complete the query first, then present the answer.
 - If a scrape fails, decide the next useful step: try a better URL, call web_search, scrape another inferred URL, or explain from the tool evidence why the requested page data was not retrievable.
 - For shopping/product questions on multiple named sites, infer each site's search URL when needed and call yada_scrape_many with all of them in one call.
 - For comparisons, "best of" questions, price checks, news/current research, and multi-source lookups, prefer yada_scrape_many over repeated single-page calls.
